@@ -4,7 +4,7 @@ import requests
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Myanmar ElevenLabs AI TTS", page_icon="🎙️")
 st.title("🎙️ Myanmar ElevenLabs AI TTS")
-st.write("ElevenLabs သဘာဝအကျဆုံး AI စနစ်သုံး မြန်မာအသံပြောင်းစနစ်")
+st.write("ElevenLabs အခမဲ့စနစ်ဖြင့် သဘာဝကျကျ မြန်မာအသံပြောင်းစနစ်")
 
 # --- SIDEBAR CONTROLS ---
 st.sidebar.header("🔑 API & Settings")
@@ -12,29 +12,28 @@ st.sidebar.header("🔑 API & Settings")
 # ElevenLabs API Key ထည့်ရန်နေရာ
 api_key = st.sidebar.text_input("သင့် ElevenLabs API Key ကို ထည့်ပါ-", type="password")
 
-# ၁။ မြန်မာအသံ ရွေးချယ်မှု (ElevenLabs ရဲ့ နာမည်ကြီး Multi-lingual voice များ)
-# ElevenLabs တွင် ဤ Voice ID များသည် မြန်မာလို အကောင်းဆုံး ထွက်ပါသည်။
+# အခမဲ့အကောင့်များတွင် API သုံးခွင့်ရသော တရားဝင် Default Voice ID များသို့ ပြောင်းလဲခြင်း
 voice_option = st.sidebar.selectbox(
     "အသံရွေးချယ်ပါ (Voices)",
     [
-        "အမျိုးသမီးသံ (Rachel - သဘာဝကျကျ ပုံပြောသံ)",
-        "အမျိုးသမီးသံ (Nicole - သက်သာငြိမ့်ညောင်းသံ)",
-        "အမျိုးသားသံ (Adam - သြဇာရှိ Movie Recap သံ)",
-        "အမျိုးသားသံ (Antoni - ပြတ်သားသွက်လက်သံ)"
+        "အမျိုးသမီးသံ (Rachel - သဘာဝကျကျ စကားပြောသံ)",
+        "အမျိုးသမီးသံ (Clyde - အေးဆေးငြိမ့်ညောင်းသံ)",
+        "အမျိုးသားသံ (Drew - ပြတ်သားသွက်လက်သံ)",
+        "အမျိုးသားသံ (Paul - သြဇာရှိ အစီရင်ခံသံ)"
     ]
 )
 
-# Voice ID များ သတ်မှတ်ခြင်း
+# Free အကောင့်တိုင်း 100% သုံးရမည့် တရားဝင် Voice IDs
 if "Rachel" in voice_option:
     voice_id = "21m00Tcm4TlvDq8ikWAM"
-elif "Nicole" in voice_option:
-    voice_id = "piTKgcLEGmPEeTBDesST"
-elif "Adam" in voice_option:
-    voice_id = "pNInz6obpgmo51dJe5mI"
+elif "Clyde" in voice_option:
+    voice_id = "2EiwWnXF2V4Rhe6bEA60"
+elif "Drew" in voice_option:
+    voice_id = "29vD33N1CtxCmqQRPOHJ"
 else:
-    voice_id = "ERXwobaYiN019vkySvjV"
+    voice_id = "5Q0t7uCAlwvnST9v87ee"
 
-st.sidebar.caption("💡 ElevenLabs တွင် အနှေးအမြန်နှင့် Tone များကို အသံရွေးချယ်မှုအပေါ် မူတည်၍ AI က အလိုအလျောက် သဘာဝကျအောင် ချိန်ညှိပေးပါသည်။")
+st.sidebar.caption("💡 အခမဲ့ဗားရှင်းဖြစ်သဖြင့် အသံ Tone များကို AI က စာသားအလိုက် သဘာဝကျအောင် အလိုအလျောက် ချိန်ညှိပေးပါမည်။")
 
 # --- MAIN TEXT INPUT ---
 text_input = st.text_area("မြန်မာစာသားများကို ဒီမှာရိုက်ထည့်ပါ (အများဆုံး စာလုံးရေ ၁၀,۰۰၀):", height=250, max_chars=10000)
@@ -49,7 +48,7 @@ if st.button("🔊 ElevenLabs AI အသံဖိုင်ထုတ်မည်")
     else:
         with st.spinner("AI က အသက်ရှူသံပါဝင်သော သဘာဝအသံ ဖန်တီးပေးနေပါတယ်..."):
             
-            # ElevenLabs TTS API URL (Multilingual v2 သုံးထားသဖြင့် မြန်မာစာ 100% ရပါသည်)
+            # API URL
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
             
             headers = {
@@ -60,21 +59,21 @@ if st.button("🔊 ElevenLabs AI အသံဖိုင်ထုတ်မည်")
             
             payload = {
                 "text": text_input,
-                "model_id": "eleven_multilingual_v2",
+                "model_id": "eleven_multilingual_v2",  # မြန်မာစာလုံး ပံ့ပိုးပေးသော စနစ်
                 "voice_settings": {
-                    "stability": 0.5,
-                    "similarity_boost": 0.75
+                    "stability": 0.45,
+                    "similarity_boost": 0.8
                 }
             }
             
             response = requests.post(url, json=payload, headers=headers)
             
             if response.status_code == 200:
-                output_file = "elevenlabs_output.mp3"
+                output_file = "elevenlabs_free_output.mp3"
                 with open(output_file, "wb") as f:
                     f.write(response.content)
                 
-                st.success("🎉 ElevenLabs အဆင့်မြင့်အသံဖိုင် ရပါပြီ။")
+                st.success("🎉 ElevenLabs သဘာဝအသံဖိုင် ရပါပြီ။")
                 st.audio(output_file, format="audio/mp3")
                 
                 with open(output_file, "rb") as f:
