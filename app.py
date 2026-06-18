@@ -1,107 +1,89 @@
 import streamlit as st
-import asyncio
-import edge_tts
-import os
+import requests
 
 # --- PAGE CONFIG ---
-st.set_page_config(page_title="Myanmar AI Text-to-Speech PRO", page_icon="🎙️")
-st.title("🎙️ Myanmar AI Text-to-Speech PRO")
-st.write("Storytelling နှင့် Movie Recap များအတွက် အဆင့်မြင့် မြန်မာအသံပြောင်းစနစ်")
+st.set_page_config(page_title="Myanmar ElevenLabs AI TTS", page_icon="🎙️")
+st.title("🎙️ Myanmar ElevenLabs AI TTS")
+st.write("ElevenLabs သဘာဝအကျဆုံး AI စနစ်သုံး မြန်မာအသံပြောင်းစနစ်")
 
 # --- SIDEBAR CONTROLS ---
-st.sidebar.header("🎛️ အသံပြင်ဆင်မှုများ")
+st.sidebar.header("🔑 API & Settings")
 
-# ၁။ မြန်မာအသံ အမျိုးသား ၃ ယောက် နှင့် အမျိုးသမီး ၃ ယောက် (စုစုပေါင်း ၆ ယောက်) အတွက် သတ်မှတ်ခြင်း
+# ElevenLabs API Key ထည့်ရန်နေရာ
+api_key = st.sidebar.text_input("သင့် ElevenLabs API Key ကို ထည့်ပါ-", type="password")
+
+# ၁။ မြန်မာအသံ ရွေးချယ်မှု (ElevenLabs ရဲ့ နာမည်ကြီး Multi-lingual voice များ)
+# ElevenLabs တွင် ဤ Voice ID များသည် မြန်မာလို အကောင်းဆုံး ထွက်ပါသည်။
 voice_option = st.sidebar.selectbox(
-    "မြန်မာအသံ ရွေးချယ်ပါ (Voices)",
+    "အသံရွေးချယ်ပါ (Voices)",
     [
-        "အမျိုးသမီး ၁ (Nilar - ပုံမှန်သံ)",
-        "အမျိုးသမီး ၂ (Mya - အေးဆေးနူးညံ့သံ)",
-        "အမျိုးသမီး ၃ (Chaw - ပြတ်သားသောသံ)",
-        "အမျိုးသား ၁ (Thiha - သြဇာရှိ အဝေရာသံ)",
-        "အမျိုးသား ၂ (Kyaw - တက်ကြွလှုံ့ဆော်သံ)",
-        "အမျိုးသား ၃ (Aung - သဘာဝပြောသံ)"
+        "အမျိုးသမီးသံ (Rachel - သဘာဝကျကျ ပုံပြောသံ)",
+        "အမျိုးသမီးသံ (Nicole - သက်သာငြိမ့်ညောင်းသံ)",
+        "အမျိုးသားသံ (Adam - သြဇာရှိ Movie Recap သံ)",
+        "အမျိုးသားသံ (Antoni - ပြတ်သားသွက်လက်သံ)"
     ]
 )
 
-# Edge-TTS ရဲ့ အခြေခံအသံကို Base ယူပြီး ကစားပါမည်
-if "Thiha" in voice_option or "Kyaw" in voice_option or "Aung" in voice_option:
-    base_voice = "my-MM-ThihaNeural"  # အမျိုးသားအသံအခြေခံ
+# Voice ID များ သတ်မှတ်ခြင်း
+if "Rachel" in voice_option:
+    voice_id = "21m00Tcm4TlvDq8ikWAM"
+elif "Nicole" in voice_option:
+    voice_id = "piTKgcLEGmPEeTBDesST"
+elif "Adam" in voice_option:
+    voice_id = "pNInz6obpgmo51dJe5mI"
 else:
-    base_voice = "my-MM-NilarNeural"  # အမျိုးသမီးအသံအခြေခံ
+    voice_id = "ERXwobaYiN019vkySvjV"
 
+st.sidebar.caption("💡 ElevenLabs တွင် အနှေးအမြန်နှင့် Tone များကို အသံရွေးချယ်မှုအပေါ် မူတည်၍ AI က အလိုအလျောက် သဘာဝကျအောင် ချိန်ညှိပေးပါသည်။")
 
-# ၂။ အသံ Tone ၅ မျိုး ရွေးချယ်ခြင်း
-tone_option = st.sidebar.selectbox(
-    "အသံ Tone ရွေးချယ်ပါ (Tones)",
-    [
-        "Normal (ပုံမှန်အတိုင်း)", 
-        "Movie Recap (မြန်မြန်နှင့် စိတ်ဝင်စားစရာ)", 
-        "Horror/Thriller (ခြောက်ခြားဖွယ်ရာ)", 
-        "Documentary (အေးဆေးတည်ငြိမ်သော)",
-        "Emotional/Drama (ဝမ်းနည်း ကြေကွဲဖွယ်)"
-    ]
-)
-
-# ၃။ အနှေးအမြန်ကို Manual စိတ်ကြိုက်ထပ်ချိန်နိုင်အောင် Slider ထည့်ပေးခြင်း
-manual_speed = st.sidebar.slider("အနှေးအမြန် စိတ်ကြိုက်ထပ်ချိန်ရန် (Speed)", min_value=0.5, max_value=1.5, value=1.0, step=0.1)
-
-# Tone များအလိုက် Speed နှင့် Pitch (အသံအနိမ့်အမြင့်) ကို Dynamic ပြောင်းလဲခြင်း
-speed_modifier = 0
-pitch_modifier = 0
-
-if tone_option == "Movie Recap (မြန်မြန်နှင့် စိတ်ဝင်စားစရာ)":
-    speed_modifier = 15  # ၁၅ ရာခိုင်နှုန်း မြန်မယ်
-    pitch_modifier = 1
-elif tone_option == "Horror/Thriller (ခြောက်ခြားဖွယ်ရာ)":
-    speed_modifier = -15 # ၁၅ ရာခိုင်နှုန်း နှေးမယ်
-    pitch_modifier = -5  # အသံ အောသွားမယ်
-elif tone_option == "Documentary (အေးဆေးတည်ငြိမ်သော)":
-    speed_modifier = -5
-    pitch_modifier = -2
-elif tone_option == "Emotional/Drama (ဝမ်းနည်း ကြေကွဲဖွယ်)":
-    speed_modifier = -10
-    pitch_modifier = 2
-
-# Voice ၆ ယောက်စာ ဖြစ်သွားအောင် Pitch ကို ထပ်မံကွဲပြားစေခြင်း
-if "Mya" in voice_option: pitch_modifier += 3
-elif "Chaw" in voice_option: pitch_modifier -= 3
-elif "Kyaw" in voice_option: pitch_modifier += 4
-elif "Aung" in voice_option: pitch_modifier -= 4
-
-# Final Speed Calculation (Slider အပြင် Tone ပါ ပေါင်းစပ်တွက်ချက်မှု)
-final_speed_percent = int((manual_speed - 1.0) * 100) + speed_modifier
-final_speed_str = f"{'+' if final_speed_percent >= 0 else ''}{final_speed_percent}%"
-final_pitch_str = f"{'+' if pitch_modifier >= 0 else ''}{pitch_modifier}Hz"
-
-# --- MAIN INPUT ---
-text_input = st.text_area("မြန်မာစာသားများကို ဒီမှာရိုက်ထည့်ပါ (အများဆုံး စာလုံးရေ ၁၀,၀၀၀):", height=250, max_chars=10000)
+# --- MAIN TEXT INPUT ---
+text_input = st.text_area("မြန်မာစာသားများကို ဒီမှာရိုက်ထည့်ပါ (အများဆုံး စာလုံးရေ ၁၀,۰۰၀):", height=250, max_chars=10000)
 st.write(f"စာလုံးရေ: {len(text_input)} / 10000")
 
-# --- TTS FUNCTION ---
-async def generate_tts(text, voice, speed, pitch, output_path):
-    communicate = edge_tts.Communicate(text, voice, rate=speed, pitch=pitch)
-    await communicate.save(output_path)
-
-# --- PROCESS ---
-if st.button("🔊 အသံဖိုင်ထုတ်မည်"):
-    if not text_input.strip():
+# --- PROCESS BUTTON ---
+if st.button("🔊 ElevenLabs AI အသံဖိုင်ထုတ်မည်"):
+    if not api_key:
+        st.error("⚠️ ကျေးဇူးပြု၍ Sidebar တွင် သင့် ElevenLabs API Key ကို အရင်ထည့်ပေးပါ။")
+    elif not text_input.strip():
         st.warning("စာသားတစ်ခုခု ရိုက်ထည့်ပါ။")
     else:
-        with st.spinner("AI က အသံဖိုင် လုပ်ပေးနေပါတယ်..."):
-            output_file = "output.mp3"
+        with st.spinner("AI က အသက်ရှူသံပါဝင်သော သဘာဝအသံ ဖန်တီးပေးနေပါတယ်..."):
             
-            asyncio.run(generate_tts(text_input, base_voice, final_speed_str, final_pitch_str, output_file))
+            # ElevenLabs TTS API URL (Multilingual v2 သုံးထားသဖြင့် မြန်မာစာ 100% ရပါသည်)
+            url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
             
-            if os.path.exists(output_file):
-                st.success("🎉 အသံဖိုင် ထွက်လာပါပြီ။")
+            headers = {
+                "Accept": "audio/mpeg",
+                "Content-Type": "application/json",
+                "xi-api-key": api_key
+            }
+            
+            payload = {
+                "text": text_input,
+                "model_id": "eleven_multilingual_v2",
+                "voice_settings": {
+                    "stability": 0.5,
+                    "similarity_boost": 0.75
+                }
+            }
+            
+            response = requests.post(url, json=payload, headers=headers)
+            
+            if response.status_code == 200:
+                output_file = "elevenlabs_output.mp3"
+                with open(output_file, "wb") as f:
+                    f.write(response.content)
+                
+                st.success("🎉 ElevenLabs အဆင့်မြင့်အသံဖိုင် ရပါပြီ။")
                 st.audio(output_file, format="audio/mp3")
                 
                 with open(output_file, "rb") as f:
                     st.download_button(
                         label="📥 အသံဖိုင်ကိုရယူရန် (Download MP3)",
                         data=f,
-                        file_name=f"myanmar_voice_{voice_option}_{tone_option}.mp3",
+                        file_name=f"elevenlabs_myanmar.mp3",
                         mime="audio/mp3"
-)
-                    
+                    )
+            else:
+                st.error(f"Error တက်သွားပါသည်: {response.text}")
+                
