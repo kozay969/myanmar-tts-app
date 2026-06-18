@@ -13,12 +13,26 @@ st.sidebar.header("🔑 API & Settings")
 # ElevenLabs API Key ထည့်ရန်နေရာ
 api_key = st.sidebar.text_input("သင့် ElevenLabs API Key ကို ထည့်ပါ-", type="password")
 
-# အခမဲ့အကောင့်အတွက် အကောင်းဆုံးဖြစ်သော တရားဝင် Rachel Voice ID တစ်ခုတည်းကိုသာ ပုံသေသုံးမည်
-# (ရွေးချယ်မှုစနစ်ကြောင့် paid_plan_required Error ပြန်တက်ခြင်းကို လုံးဝတားဆီးရန် ဖြစ်သည်)
-voice_id = "21m00Tcm4TlvDq8ikWAM"
+# အခမဲ့အကောင့်တိုင်း (Free Accounts) တွင် ၁၀၀% ပိတ်ပင်ခြင်းမရှိဘဲ သုံးခွင့်ရသော Premade စနစ်သုံး Voice IDs များ
+voice_option = st.sidebar.selectbox(
+    "မြန်မာအသံ ရွေးချယ်ပါ (Voices)",
+    [
+        "အမျိုးသားသံ (Adam - Premade စိတ်လှုပ်ရှားဖွယ်/Recap သံ)",
+        "အမျိုးသားသံ (Antoni - Premade ပြတ်သားသွက်လက်သံ)",
+        "အမျိုးသမီးသံ (Bella - Premade အေးဆေးငြိမ့်ညောင်းသံ)"
+    ]
+)
 
-st.sidebar.success("✅ အခမဲ့အကောင့်သုံး သဘာဝ မြန်မာအသံ (Rachel Voice) ကို အသင့်ပြင်ဆင်ပြီးပါပြီ။")
-st.sidebar.caption("💡 အခမဲ့ဗားရှင်းဖြစ်သဖြင့် အသံ Tone နှင့် အဖြတ်အတောက်များကို AI က စာသားအလိုက် သဘာဝကျအောင် အလိုအလျောက် ချိန်ညှိပေးပါမည်။")
+# ElevenLabs ၏ တရားဝင် စနစ်သုံး (Premade/Default) Voice IDs များ
+if "Adam" in voice_option:
+    voice_id = "pNInz6obpgmo51dJe5mI"  # Premade Adam Voice ID
+elif "Antoni" in voice_option:
+    voice_id = "ERXwobaYiN019vkySvjV"  # Premade Antoni Voice ID
+else:
+    voice_id = "EXAVITQu4vr4xnSDxMaL"  # Premade Bella Voice ID
+
+st.sidebar.success("✅ အခမဲ့စနစ်သုံး အသံဗားရှင်းကို ချိတ်ဆက်ထားပါသည်။")
+st.sidebar.caption("💡 ElevenLabs တွင် အနှေးအမြန်နှင့် Tone များကို AI က စာသားအလိုက် သဘာဝကျအောင် အလိုအလျောက် ချိန်ညှိပေးပါမည်။")
 
 # --- MAIN TEXT INPUT ---
 text_input = st.text_area("မြန်မာစာသားများကို ဒီမှာရိုက်ထည့်ပါ (အများဆုံး စာလုံးရေ ၁၀,၀၀၀):", height=250, max_chars=10000)
@@ -44,25 +58,25 @@ if st.button("🔊 ElevenLabs AI အသံဖိုင်ထုတ်မည်")
             
             payload = {
                 "text": text_input,
-                "model_id": "eleven_multilingual_v2",
+                "model_id": "eleven_multilingual_v2",  # မြန်မာစာလုံး ပံ့ပိုးပေးသော ဗားရှင်း
                 "voice_settings": {
                     "stability": 0.5,
-                    "similarity_boost": 0.8
+                    "similarity_boost": 0.75
                 }
             }
             
             try:
-                # Unicode Error မဖြစ်စေရန် စာသားများကို UTF-8 အဖြစ် သေချာစွာ Encode လုပ်ခြင်း
+                # Unicode Encoding Error မတက်စေရန် UTF-8 သို့ encode လုပ်ခြင်း
                 json_data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
                 
                 response = requests.post(url, data=json_data, headers=headers)
                 
                 if response.status_code == 200:
-                    output_file = "elevenlabs_free_output.mp3"
+                    output_file = "elevenlabs_output.mp3"
                     with open(output_file, "wb") as f:
                         f.write(response.content)
                     
-                    st.success("🎉 ElevenLabs သဘာဝအသံဖိုင် ရပါပြီ။")
+                    st.success("🎉 ElevenLabs အဆင့်မြင့်အသံဖိုင် ရပါပြီ။")
                     st.audio(output_file, format="audio/mp3")
                     
                     with open(output_file, "rb") as f:
@@ -73,6 +87,7 @@ if st.button("🔊 ElevenLabs AI အသံဖိုင်ထုတ်မည်")
                             mime="audio/mp3"
                         )
                 else:
+                    # Error message ကို user နားလည်အောင် သေချာထုတ်ပြခြင်း
                     st.error(f"Error တက်သွားပါသည်: {response.text}")
                     
             except Exception as e:
