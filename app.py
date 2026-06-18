@@ -13,31 +13,15 @@ st.sidebar.header("🔑 API & Settings")
 # ElevenLabs API Key ထည့်ရန်နေရာ
 api_key = st.sidebar.text_input("သင့် ElevenLabs API Key ကို ထည့်ပါ-", type="password")
 
-# အခမဲ့အကောင့်များတွင် API သုံးခွင့်ရသော တရားဝင် ပုံသေ Voice များ
-voice_option = st.sidebar.selectbox(
-    "အသံရွေးချယ်ပါ (Voices)",
-    [
-        "အမျိုးသမီးသံ (Rachel - သဘာဝကျကျ စကားပြောသံ)",
-        "အမျိုးသမီးသံ (Clyde - အေးဆေးငြိမ့်ညောင်းသံ)",
-        "အမျိုးသားသံ (Drew - ပြတ်သားသွက်လက်သံ)",
-        "အမျိုးသားသံ (Paul - သြဇာရှိ အစီရင်ခံသံ)"
-    ]
-)
+# အခမဲ့အကောင့်အတွက် အကောင်းဆုံးဖြစ်သော တရားဝင် Rachel Voice ID တစ်ခုတည်းကိုသာ ပုံသေသုံးမည်
+# (ရွေးချယ်မှုစနစ်ကြောင့် paid_plan_required Error ပြန်တက်ခြင်းကို လုံးဝတားဆီးရန် ဖြစ်သည်)
+voice_id = "21m00Tcm4TlvDq8ikWAM"
 
-# Free အကောင့်တိုင်း ၁၀၀% သုံးရမည့် တရားဝင် Voice IDs အမှန်များ
-if "Rachel" in voice_option:
-    voice_id = "21m00Tcm4TlvDq8ikWAM"
-elif "Clyde" in voice_option:
-    voice_id = "2EiwWnXF2V4Rhe6bEA60"
-elif "Drew" in voice_option:
-    voice_id = "29vD33N1CtxCmqQRPOHJ"
-else:
-    voice_id = "5Q0t7uCAlwvnST9v87ee"
-
-st.sidebar.caption("💡 အခမဲ့ဗားရှင်းဖြစ်သဖြင့် အသံ Tone များကို AI က စာသားအလိုက် သဘာဝကျအောင် အလိုအလျောက် ချိန်ညှိပေးပါမည်။")
+st.sidebar.success("✅ အခမဲ့အကောင့်သုံး သဘာဝ မြန်မာအသံ (Rachel Voice) ကို အသင့်ပြင်ဆင်ပြီးပါပြီ။")
+st.sidebar.caption("💡 အခမဲ့ဗားရှင်းဖြစ်သဖြင့် အသံ Tone နှင့် အဖြတ်အတောက်များကို AI က စာသားအလိုက် သဘာဝကျအောင် အလိုအလျောက် ချိန်ညှိပေးပါမည်။")
 
 # --- MAIN TEXT INPUT ---
-text_input = st.text_area("မြန်မာစာသားများကို ဒီမှာရိုက်ထည့်ပါ (အများဆုံး စာလုံးရေ ၁၀,۰۰၀):", height=250, max_chars=10000)
+text_input = st.text_area("မြန်မာစာသားများကို ဒီမှာရိုက်ထည့်ပါ (အများဆုံး စာလုံးရေ ၁၀,၀၀၀):", height=250, max_chars=10000)
 st.write(f"စာလုံးရေ: {len(text_input)} / 10000")
 
 # --- PROCESS BUTTON ---
@@ -49,7 +33,7 @@ if st.button("🔊 ElevenLabs AI အသံဖိုင်ထုတ်မည်")
     else:
         with st.spinner("AI က အသက်ရှူသံပါဝင်သော သဘာဝအသံ ဖန်တီးပေးနေပါတယ်..."):
             
-            # ရွေးချယ်ထားသော Voice ID ဖြင့် API URL တည်ဆောက်ခြင်း
+            # API URL
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
             
             headers = {
@@ -68,7 +52,7 @@ if st.button("🔊 ElevenLabs AI အသံဖိုင်ထုတ်မည်")
             }
             
             try:
-                # Unicode Error မတက်စေရန် သေချာစွာ encode လုပ်ခြင်း
+                # Unicode Error မဖြစ်စေရန် စာသားများကို UTF-8 အဖြစ် သေချာစွာ Encode လုပ်ခြင်း
                 json_data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
                 
                 response = requests.post(url, data=json_data, headers=headers)
@@ -93,4 +77,4 @@ if st.button("🔊 ElevenLabs AI အသံဖိုင်ထုတ်မည်")
                     
             except Exception as e:
                 st.error(f"ကုဒ်ပိုင်းဆိုင်ရာ အမှားအယွင်းရှိပါသည်: {str(e)}")
-                    
+                
