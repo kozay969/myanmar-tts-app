@@ -9,61 +9,80 @@ st.write("ElevenLabs အခမဲ့စနစ်ဖြင့် သဘာဝက�
 
 # --- SIDEBAR CONTROLS ---
 st.sidebar.header("🔑 API & Settings")
-
-# ElevenLabs API Key ထည့်ရန်နေရာ
 api_key = st.sidebar.text_input("သင့် ElevenLabs API Key ကို ထည့်ပါ-", type="password")
 
-# အခမဲ့အကောင့်တိုင်းတွင် Voice ID အမှားအယွင်း လုံးဝမရှိစေရန် တရားဝင် အခြေခံအကျဆုံး Rachel (ပုံသေ) ကို သုံးပါမည်
-voice_id = "21m00Tcm4TlvDq8ikWAM"
+# --- LOAD VOICES ---
+voice_options = {}
 
-st.sidebar.success("✅ အခမဲ့စနစ်သုံး သဘာဝအသံ (Rachel) ကို ချိတ်ဆက်ထားပါသည်။")
-st.sidebar.caption("💡 အခမဲ့ဗားရှင်းဖြစ်သဖြင့် အသံ Tone ကို AI က စာသားအလိုက် သဘာဝကျအောင် အလိုအလျောက် ချိန်ညှိပေးပါမည်။")
+if api_key:
+    try:
+        voice_resp = requests.get(
+            "https://api.elevenlabs.io/v1/voices",
+            headers={"xi-api-key": api_key}
+        )
+        if voice_resp.status_code == 200:
+            voices = voice_resp.json().get("voices", [])
+            voice_options = {v["name"]: v["voice_id"] for v in voices}
+            st.sidebar.success(f"✅ အသံ {len(voice_options)} ခု တွေ့ပါသည်။")
+        else:
+            st.sidebar.error("API Key မှားနေသည် သို့မဟုတ် voice ရယူမရပါ။")
+    except Exception as e:
+        st.sidebar.error(f"Voice ရယူရာတွင် အမှားရှိသည်: {e}")
+
+if voice_options:
+    selected_voice_name = st.sidebar.selectbox("🎤 အသံရွေးချယ်ပါ-", list(voice_options.keys()))
+    voice_id = voice_options[selected_voice_name]
+    st.sidebar.caption(f"Voice ID: `{voice_id}`")
+else:
+    voice_id = None
+    if api_key:
+        st.sidebar.warning("Voice list ရယူ၍ မရသေးပါ။")
 
 # --- MAIN TEXT INPUT ---
-text_input = st.text_area("မြန်မာစာသားများကို ဒီမှာရိုက်ထည့်ပါ (အများဆုံး စာလုံးရေ ၁၀,၀၀၀):", height=250, max_chars=10000)
+text_input = st.text_area(
+    "မြန်မာစာသားများကို ဒီမှာရိုက်ထည့်ပါ (အများဆုံး စာလုံးရေ ၁၀,၀၀၀):",
+    height=250,
+    max_chars=10000
+)
 st.write(f"စာလုံးရေ: {len(text_input)} / 10000")
 
 # --- PROCESS BUTTON ---
 if st.button("🔊 ElevenLabs AI အသံဖိုင်ထုတ်မည်"):
     if not api_key:
-        st.error("⚠️ ကျေးဇူးပြု၍ Sidebar တွင် သင့် ElevenLabs API Key ကို အရင်ထည့်ပေးပါ။")
+        st.error("⚠️ Sidebar တွင် သင့် ElevenLabs API Key ကို အရင်ထည့်ပေးပါ။")
+    elif not voice_id:
+        st.error("⚠️ အသံတစ်ခု ရွေးချယ်ပေးပါ။")
     elif not text_input.strip():
         st.warning("စာသားတစ်ခုခု ရိုက်ထည့်ပါ။")
     else:
-        with st.spinner("AI က အသက်ရှူသံပါဝင်သော သဘာဝအသံ ဖန်တီးပေးနေပါတယ်..."):
-            
-            # API URL
+        with st.spinner("AI က သဘာဝအသံ ဖန်တီးပေးနေပါတယ်..."):
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-            
             headers = {
                 "Accept": "audio/mpeg",
                 "Content-Type": "application/json; charset=utf-8",
                 "xi-api-key": api_key
             }
-            
             payload = {
                 "text": text_input,
-                "model_id": "eleven_multilingual_v2",  # မြန်မာစာလုံး ပံ့ပိုးပေးသော ဗားရှင်း
+                "model_id": "eleven_multilingual_v2",
                 "voice_settings": {
                     "stability": 0.5,
                     "similarity_boost": 0.75
                 }
             }
-            
+
             try:
-                # Unicode Encoding Error မတက်စေရန် UTF-8 သို့ encode လုပ်ခြင်း
                 json_data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
-                
                 response = requests.post(url, data=json_data, headers=headers)
-                
+
                 if response.status_code == 200:
                     output_file = "elevenlabs_output.mp3"
                     with open(output_file, "wb") as f:
                         f.write(response.content)
-                    
+
                     st.success("🎉 ElevenLabs အဆင့်မြင့်အသံဖိုင် ရပါပြီ။")
                     st.audio(output_file, format="audio/mp3")
-                    
+
                     with open(output_file, "rb") as f:
                         st.download_button(
                             label="📥 အသံဖိုင်ကိုရယူရန် (Download MP3)",
@@ -71,32 +90,8 @@ if st.button("🔊 ElevenLabs AI အသံဖိုင်ထုတ်မည်")
                             file_name="elevenlabs_myanmar.mp3",
                             mime="audio/mp3"
                         )
-                # အကယ်၍ အပေါ်က Voice ID က အကောင့်သစ်တွေမှာ ရှာမတွေ့ပါက ဒုတိယအရန်စနစ် (Default text-to-speech) ဖြင့် ထပ်မံကြိုးစားခြင်း
-                elif response.status_code == 404:
-                    # အကောင့်တိုင်းမှာ မဖြစ်မနေပါတဲ့ 'rachel' ဆိုတဲ့ အမည်နဲ့ တိုက်ရိုက်ထပ်မံခေါ်ယူခြင်း
-                    fallback_url = "https://api.elevenlabs.io/v1/text-to-speech/rachel"
-                    fallback_response = requests.post(fallback_url, data=json_data, headers=headers)
-                    
-                    if fallback_response.status_code == 200:
-                        output_file = "elevenlabs_output.mp3"
-                        with open(output_file, "wb") as f:
-                            f.write(fallback_response.content)
-                        
-                        st.success("🎉 ElevenLabs အဆင့်မြင့်အသံဖိုင် ရပါပြီ။")
-                        st.audio(output_file, format="audio/mp3")
-                        
-                        with open(output_file, "rb") as f:
-                            st.download_button(
-                                label="📥 အသံဖိုင်ကိုရယူရန် (Download MP3)",
-                                data=f,
-                                file_name="elevenlabs_myanmar.mp3",
-                                mime="audio/mp3"
-                            )
-                    else:
-                        st.error(f"Error တက်သွားပါသည်: {fallback_response.text}")
                 else:
                     st.error(f"Error တက်သွားပါသည်: {response.text}")
-                    
+
             except Exception as e:
                 st.error(f"ကုဒ်ပိုင်းဆိုင်ရာ အမှားအယွင်းရှိပါသည်: {str(e)}")
-                
