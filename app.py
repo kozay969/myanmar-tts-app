@@ -6,19 +6,17 @@ import os
 from google import genai
 from google.genai import types
 
-# 1. Page Configuration
 st.set_page_config(page_title="Gemini TTS Pro", layout="centered")
-st.title("🎙️ Gemini 2.5 Flash Preview TTS")
-st.write("✅ Auto Split | 📊 Progress Bar | 📁 ZIP Download | 🛡️ Error Handling")
+st.title("🎤 Gemini 2.5 Flash TTS Pro")
 
-# 2. API Key Check
 api_key = st.secrets.get("GEMINI_API_KEY")
 if not api_key:
-    st.error("❌ GEMINI_API_KEY မတွေ့ပါ (Secrets တွင် စစ်ဆေးပါ)")
+    st.error("❌ GEMINI_API_KEY မတွေ့ပါ")
     st.stop()
+
 client = genai.Client(api_key=api_key)
 
-# 3. Helper Functions
+# Text Splitter Function
 def split_text(text, max_chars=1000):
     text = text.strip()
     if len(text) <= max_chars: return [text]
@@ -32,47 +30,43 @@ def split_text(text, max_chars=1000):
     if text: chunks.append(text)
     return chunks
 
-# 4. User Inputs
+# Voice Selection
 voice = st.selectbox("🎙️ Voice", ["Kore", "Aoede", "Charon", "Fenrir", "Puck"])
-text_input = st.text_area("စာသားများ ထည့်သွင်းပါ:", height=250)
+text_input = st.text_area("စာသားထည့်ပါ", height=200)
 
-# 5. Generation Logic
 if st.button("🚀 Generate & ZIP"):
     if not text_input.strip():
-        st.warning("စာသားအနည်းငယ် ထည့်သွင်းပေးပါ။")
+        st.warning("စာသားထည့်ပေးပါ")
     else:
-        try:
-            chunks = split_text(text_input)
-            progress_bar = st.progress(0)
-            zip_buffer = io.BytesIO()
-            
-            with zipfile.ZipFile(zip_buffer, 'w') as zf:
-                for i, chunk in enumerate(chunks):
-                    # Gemini API Call
-                    response = client.models.generate_content(
-                        model="gemini-2.5-flash-preview-tts",
-                        contents=chunk,
-                        config=types.GenerateContentConfig(
-                            response_modalities=["AUDIO"],
-                            speech_config=types.SpeechConfig(
-                                voice_config=types.VoiceConfig(
-                                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
-                                )
-                            ),
+        chunks = split_text(text_input)
+        progress_bar = st.progress(0)
+        zip_buffer = io.BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'w') as zf:
+            for i, chunk in enumerate(chunks):
+                st.write(f"Processing part {i+1}/{len(chunks)}...")
+                
+                # API Call
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash-preview-tts",
+                    contents=chunk,
+                    config=types.GenerateContentConfig(
+                        response_modalities=["AUDIO"],
+                        speech_config=types.SpeechConfig(
+                            voice_config=types.VoiceConfig(
+                                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
+                            )
                         ),
-                    )
-                    
-                    audio_data = response.candidates[0].content.parts[0].inline_data.data
-                    zf.writestr(f"audio_part_{i+1}.wav", audio_data)
-                    progress_bar.progress((i + 1) / len(chunks))
-            
-            st.success("✅ အားလုံးပြီးဆုံးပါပြီ!")
-            st.download_button(
-                label="📥 Download ZIP",
-                data=zip_buffer.getvalue(),
-                file_name="gemini_tts_output.zip",
-                mime="application/zip"
-            )
-        except Exception as e:
-            st.error(f"🛡️ Error ဖြစ်ပေါ်ပါသည်: {e}")
-
+                    ),
+                )
+                
+                audio_data = response.candidates[0].content.parts[0].inline_data.data
+                
+                # Write to ZIP
+                filename = f"audio_part_{i+1}.wav"
+                zf.writestr(filename, audio_data)
+                
+                progress_bar.progress((i + 1) / len(chunks))
+        
+        st.success("✅ အားလုံးပြီးဆုံးပါပြီ!")
+        st.download_button("📥 Download ZIP", zip_buffer.getvalue(), "gemini_tts.zip", "application/zip")
