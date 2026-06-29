@@ -1,73 +1,133 @@
 import streamlit as st
-import asyncio
 import edge_tts
 import tempfile
 import os
+import asyncio
 
-# App ရဲ့ ခေါင်းစဉ်နဲ့ ဖော်ပြချက်
-st.set_page_config(page_title="Edge TTS စမ်းသပ်မှု", page_icon="🔊")
-st.title("🔊 Edge TTS ဖြင့် စာသားမှ အသံပြောင်းခြင်း")
-st.caption("Microsoft Edge ရဲ့ အခမဲ့ TTS ဝန်ဆောင်မှုကို အသုံးပြုထားသည်။")
+# Page config
+st.set_page_config(
+    page_title="Myanmar TTS App",
+    page_icon="🔊",
+    layout="centered"
+)
 
-# အသုံးပြုနိုင်မယ့် နမူနာအသံများ (အားလုံးကို `edge-tts --list-voices` နဲ့ ကြည့်နိုင်ပါတယ်)
+# Mobile friendly CSS
+st.markdown("""
+<style>
+    .stTextArea textarea {
+        font-size: 18px !important;
+        min-height: 150px !important;
+    }
+    .stButton button {
+        width: 100% !important;
+        padding: 15px !important;
+        font-size: 18px !important;
+        border-radius: 10px !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        font-weight: bold !important;
+    }
+    @media (max-width: 768px) {
+        .stApp {
+            padding: 10px !important;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Title
+st.title("🔊 Myanmar TTS App")
+st.caption("အခမဲ့ Edge TTS ကို အသုံးပြုထားသည်")
+
+# Voice options
 voice_options = {
-    "အမေရိကန် အင်္ဂလိပ် - Jenny (အမျိုးသမီး)": "en-US-JennyNeural",
-    "အမေရိကန် အင်္ဂလိပ် - Guy (အမျိုးသား)": "en-US-GuyNeural",
-    "ဗြိတိသျှ အင်္ဂလိပ် - Sonia (အမျိုးသမီး)": "en-GB-SoniaNeural",
-    "စပိန် - Alvaro (အမျိုးသား)": "es-ES-AlvaroNeural",
-    "ပြင်သစ် - Denise (အမျိုးသမီး)": "fr-FR-DeniseNeural",
+    "US English - Jenny (Female)": "en-US-JennyNeural",
+    "US English - Guy (Male)": "en-US-GuyNeural",
+    "UK English - Sonia (Female)": "en-GB-SoniaNeural",
+    "UK English - Ryan (Male)": "en-GB-RyanNeural",
+    "Australian English - Natasha (Female)": "en-AU-NatashaNeural",
+    "Australian English - William (Male)": "en-AU-WilliamNeural",
+    "Indian English - Neerja (Female)": "en-IN-NeerjaNeural",
+    "Indian English - Prabhat (Male)": "en-IN-PrabhatNeural",
 }
 
-# ဘေးဘားမှာ အသံရွေးချယ်မှုများ
+# Sidebar settings
 with st.sidebar:
-    st.header("အသံရွေးချယ်မှုများ")
-    selected_voice_name = st.selectbox("အသံအမျိုးအစား", list(voice_options.keys()))
+    st.header("⚙️ Settings")
+    selected_voice_name = st.selectbox("Select Voice", list(voice_options.keys()))
     selected_voice = voice_options[selected_voice_name]
     
-    rate = st.slider("စကားပြောနှုန်း", -50, 100, 0, 5, help="-50% မှ +100% အထိ ချိန်ညှိနိုင်သည်။")
-    rate_str = f"{rate:+d}%"  # +0%, -20%, +30% စသဖြင့်
+    rate = st.slider("Speed", -50, 100, 0, 5, help="-50% to +100%")
+    rate_str = f"{rate:+d}%"
     
-    pitch = st.slider("အသံအနိမ့်အမြင့်", -12, 12, 0, 1, help="-12Hz မှ +12Hz အထိ ချိန်ညှိနိုင်သည်။")
-    pitch_str = f"{pitch:+d}Hz"  # +0Hz, -5Hz, +8Hz စသဖြင့်
+    pitch = st.slider("Pitch", -12, 12, 0, 1, help="-12Hz to +12Hz")
+    pitch_str = f"{pitch:+d}Hz"
 
-# စာသားထည့်ရန် နေရာ
-text_input = st.text_area("အသံဖိုင်အဖြစ် ပြောင်းလိုသော စာသားကို ရိုက်ထည့်ပါ။", height=200)
+# Text input
+text_input = st.text_area(
+    "📝 Enter text to convert to speech",
+    height=150,
+    placeholder="Type or paste your text here..."
+)
 
-# အသံပြောင်းရန် ခလုတ်
-if st.button("အသံဖိုင် ထုတ်ယူမည်", type="primary"):
-    if not text_input:
-        st.warning("ကျေးဇူးပြု၍ စာသားတစ်ခုခု ရိုက်ထည့်ပါ။")
+# Function to generate audio
+def generate_audio(text, voice, rate, pitch):
+    """Generate audio using edge-tts"""
+    try:
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+            output_file = tmp_file.name
+        
+        # Run async function
+        async def run_tts():
+            communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+            await communicate.save(output_file)
+        
+        # Run the async function
+        asyncio.run(run_tts())
+        
+        # Read the audio file
+        with open(output_file, "rb") as f:
+            audio_bytes = f.read()
+        
+        # Clean up
+        os.unlink(output_file)
+        
+        return audio_bytes, None
+        
+    except Exception as e:
+        return None, str(e)
+
+# Generate button
+if st.button("🚀 Generate Speech", use_container_width=True):
+    if not text_input.strip():
+        st.error("⚠️ Please enter some text!")
     else:
-        with st.spinner("အသံဖိုင် ပြင်ဆင်နေသည်... ကျေးဇူးပြု၍ စောင့်ပါ။"):
-            try:
-                # ယာယီဖိုင် တစ်ခု ဖန်တီးပါ
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
-                    output_file = tmp_file.name
-                
-                # edge_tts ကို asynchronous ဖြင့် ခေါ်ပါ
-                communicate = edge_tts.Communicate(text_input, selected_voice, rate=rate_str, pitch=pitch_str)
-                await communicate.save(output_file)
-                
-                # ဖိုင်ကို ဖတ်ပြီး ပြသရန်
-                with open(output_file, "rb") as f:
-                    audio_bytes = f.read()
-                
-                # အသံဖိုင်ကို ဖွင့်ပြပါ
+        with st.spinner("🎤 Generating audio... Please wait."):
+            audio_bytes, error = generate_audio(
+                text_input, 
+                selected_voice, 
+                rate_str, 
+                pitch_str
+            )
+            
+            if error:
+                st.error(f"❌ Error: {error}")
+            else:
+                # Play audio
                 st.audio(audio_bytes, format="audio/mp3")
                 
-                # Download ခလုတ် ထည့်ပါ
+                # Download button
                 st.download_button(
-                    label="📥 အသံဖိုင် ဒေါင်းလုဒ်လုပ်မည် (MP3)",
+                    label="📥 Download MP3",
                     data=audio_bytes,
-                    file_name="output.mp3",
+                    file_name="tts_output.mp3",
                     mime="audio/mp3",
+                    use_container_width=True
                 )
                 
-                # ယာယီဖိုင်ကို ဖျက်ပါ
-                os.unlink(output_file)
-                
-                st.success("အသံဖိုင် အောင်မြင်စွာ ထုတ်ယူပြီးပါပြီ။")
-                
-            except Exception as e:
-                st.error(f"အမှားတစ်ခု ဖြစ်ပွားခဲ့ပါသည်။ အသေးစိတ်: {e}")
+                st.success("✅ Audio generated successfully!")
 
+# Footer
+st.divider()
+st.caption("💡 Powered by Microsoft Edge TTS | Free to use")
