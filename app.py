@@ -4,139 +4,103 @@ import tempfile
 import os
 import asyncio
 
-# Page config
-st.set_page_config(
-    page_title="Myanmar TTS App",
-    page_icon="🔊",
-    layout="centered"
-)
+st.set_page_config(page_title="Myanmar TTS - High Quality", page_icon="🔊", layout="centered")
 
-# Mobile friendly CSS
 st.markdown("""
 <style>
-    .stTextArea textarea {
-        font-size: 18px !important;
-        min-height: 150px !important;
-    }
-    .stButton button {
-        width: 100% !important;
-        padding: 15px !important;
-        font-size: 18px !important;
-        border-radius: 10px !important;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        color: white !important;
-        font-weight: bold !important;
-    }
-    @media (max-width: 768px) {
-        .stApp {
-            padding: 10px !important;
-        }
-    }
+    .stTextArea textarea { font-size: 18px !important; min-height: 150px !important; }
+    .stButton button { width: 100% !important; padding: 15px !important; font-size: 18px !important; border-radius: 10px !important; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: white !important; font-weight: bold !important; }
+    @media (max-width: 768px) { .stApp { padding: 10px !important; } }
 </style>
 """, unsafe_allow_html=True)
 
-# Title
-st.title("🔊 Myanmar TTS App")
-st.caption("မြန်မာအသံများ အပါအဝင် Edge TTS ကို အသုံးပြုထားသည်")
+st.title("🔊 Myanmar TTS - High Quality")
+st.caption("အရည်အသွေးမြင့် Edge TTS ကို အသုံးပြုထားသည်")
 
-# Voice options (မြန်မာအသံများ ထည့်ထားပြီး)
 voice_options = {
-    # ===== မြန်မာအသံများ =====
     "မြန်မာ - Nilar (အမျိုးသမီး)": "my-MM-NilarNeural",
     "မြန်မာ - Thiha (အမျိုးသား)": "my-MM-ThihaNeural",
-    
-    # ===== အင်္ဂလိပ်အသံများ =====
-    "US English - Jenny (Female)": "en-US-JennyNeural",
-    "US English - Guy (Male)": "en-US-GuyNeural",
-    "UK English - Sonia (Female)": "en-GB-SoniaNeural",
-    "UK English - Ryan (Male)": "en-GB-RyanNeural",
-    "Australian English - Natasha (Female)": "en-AU-NatashaNeural",
-    "Australian English - William (Male)": "en-AU-WilliamNeural",
-    "Indian English - Neerja (Female)": "en-IN-NeerjaNeural",
-    "Indian English - Prabhat (Male)": "en-IN-PrabhatNeural",
-    
-    # ===== အခြားဘာသာစကားများ =====
-    "Chinese - Xiaoxiao (Female)": "zh-CN-XiaoxiaoNeural",
-    "Japanese - Nanami (Female)": "ja-JP-NanamiNeural",
+    "US English - Jenny (Neural)": "en-US-JennyNeural",
+    "US English - Guy (Neural)": "en-US-GuyNeural",
+    "UK English - Sonia (Neural)": "en-GB-SoniaNeural",
 }
 
-# Sidebar settings
 with st.sidebar:
     st.header("⚙️ Settings")
     selected_voice_name = st.selectbox("Select Voice", list(voice_options.keys()))
     selected_voice = voice_options[selected_voice_name]
     
-    rate = st.slider("Speed", -50, 100, 0, 5, help="-50% to +100%")
+    rate = st.slider("Speech Speed", -50, 50, -5, 5)
     rate_str = f"{rate:+d}%"
     
-    pitch = st.slider("Pitch", -12, 12, 0, 1, help="-12Hz to +12Hz")
+    pitch = st.slider("Pitch", -12, 12, 0, 1)
     pitch_str = f"{pitch:+d}Hz"
+    
+    volume = st.slider("Volume", -50, 50, 20, 5)
+    volume_str = f"{volume:+d}%"
+    
+    # အရည်အသွေးရွေးချယ်မှု
+    quality = st.selectbox(
+        "Audio Quality",
+        ["Standard (48kbit)", "High (96kbit)", "Premium (160kbit)"],
+        index=1
+    )
+    
+    quality_map = {
+        "Standard (48kbit)": "audio-24khz-48kbitrate-mono-mp3",
+        "High (96kbit)": "audio-24khz-96kbitrate-mono-mp3",
+        "Premium (160kbit)": "audio-24khz-160kbitrate-mono-mp3",
+    }
+    output_format = quality_map[quality]
 
-# Text input
-text_input = st.text_area(
-    "📝 Enter text to convert to speech",
-    height=150,
-    placeholder="Type or paste your text here..."
-)
+text_input = st.text_area("📝 Enter text", height=150, placeholder="Type your text here...")
 
-# Function to generate audio
-def generate_audio(text, voice, rate, pitch):
-    """Generate audio using edge-tts"""
+def generate_audio(text, voice, rate, pitch, volume, output_format):
     try:
-        # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
             output_file = tmp_file.name
         
-        # Run async function
         async def run_tts():
-            communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+            communicate = edge_tts.Communicate(
+                text, 
+                voice, 
+                rate=rate, 
+                pitch=pitch,
+                volume=volume,
+                output_format=output_format
+            )
             await communicate.save(output_file)
         
-        # Run the async function
         asyncio.run(run_tts())
         
-        # Read the audio file
         with open(output_file, "rb") as f:
             audio_bytes = f.read()
-        
-        # Clean up
         os.unlink(output_file)
-        
         return audio_bytes, None
-        
     except Exception as e:
         return None, str(e)
 
-# Generate button
-if st.button("🚀 Generate Speech", use_container_width=True):
+if st.button("🚀 Generate High Quality Speech", use_container_width=True):
     if not text_input.strip():
         st.error("⚠️ Please enter some text!")
     else:
-        with st.spinner("🎤 Generating audio... Please wait."):
+        with st.spinner("🎤 Generating high quality audio..."):
             audio_bytes, error = generate_audio(
-                text_input, 
-                selected_voice, 
-                rate_str, 
-                pitch_str
+                text_input, selected_voice, rate_str, pitch_str, volume_str, output_format
             )
             
             if error:
                 st.error(f"❌ Error: {error}")
             else:
-                # Play audio
                 st.audio(audio_bytes, format="audio/mp3")
-                
-                # Download button
                 st.download_button(
-                    label="📥 Download MP3",
+                    label="📥 Download High Quality MP3",
                     data=audio_bytes,
-                    file_name="tts_output.mp3",
+                    file_name="tts_high_quality.mp3",
                     mime="audio/mp3",
                     use_container_width=True
                 )
-                
-                st.success("✅ Audio generated successfully!")
+                st.success(f"✅ Audio generated successfully! (Quality: {quality})")
 
-# Footer
 st.divider()
-st.caption("💡 Powered by Microsoft Edge TTS | Free to use")
+st.caption("💡 Powered by Microsoft Edge TTS | High Quality Mode")
