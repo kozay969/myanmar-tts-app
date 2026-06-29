@@ -37,10 +37,15 @@ st.markdown("""
 
 # Title
 st.title("🔊 Myanmar TTS App")
-st.caption("အခမဲ့ Edge TTS ကို အသုံးပြုထားသည်")
+st.caption("မြန်မာအသံများ အပါအဝင် Edge TTS ကို အသုံးပြုထားသည်")
 
-# Voice options
+# Voice options (မြန်မာအသံများ ထည့်ထားပြီး)
 voice_options = {
+    # ===== မြန်မာအသံများ =====
+    "မြန်မာ - Nilar (အမျိုးသမီး)": "my-MM-NilarNeural",
+    "မြန်မာ - Thiha (အမျိုးသား)": "my-MM-ThihaNeural",
+    
+    # ===== အင်္ဂလိပ်အသံများ =====
     "US English - Jenny (Female)": "en-US-JennyNeural",
     "US English - Guy (Male)": "en-US-GuyNeural",
     "UK English - Sonia (Female)": "en-GB-SoniaNeural",
@@ -49,6 +54,10 @@ voice_options = {
     "Australian English - William (Male)": "en-AU-WilliamNeural",
     "Indian English - Neerja (Female)": "en-IN-NeerjaNeural",
     "Indian English - Prabhat (Male)": "en-IN-PrabhatNeural",
+    
+    # ===== အခြားဘာသာစကားများ =====
+    "Chinese - Xiaoxiao (Female)": "zh-CN-XiaoxiaoNeural",
+    "Japanese - Nanami (Female)": "ja-JP-NanamiNeural",
 }
 
 # Sidebar settings
