@@ -5,31 +5,25 @@ import time
 import asyncio
 import zipfile
 import edge_tts
+from edge_tts.exceptions import NoAudioReceived
 
-st.set_page_config(page_title="Myanmar Edge TTS", page_icon="🔊")
+st.set_page_config(page_title="Myanmar Edge TTS Pro", page_icon="🔊")
 
-st.title("🔊 Myanmar Edge TTS Pro")
-st.caption("Voice Preview • Phonetic Fallback • GitHub Ready")
+st.title("🔊 Myanmar Edge TTS Pro (FIXED)")
+st.caption("Voice Preview • Safe Fallback • GitHub Ready")
 
-# ---------------- VOICES ----------------
-MY_VOICES = [
-    "my-MM-NilarNeural",
-    "my-MM-ThazinNeural",
-    "my-MM-AyeAyeNeural",
-    "my-MM-KhinNeural",
-    "my-MM-HninNeural",
-    "my-MM-YadanarNeural",
-    "my-MM-SandaNeural",
-    "my-MM-MyaNeural",
-    "my-MM-HlaNeural",
-    "my-MM-SuSuNeural",
-    "my-MM-KhayNeural",
-    "my-MM-WutyiNeural",
+# ---------------- REAL EDGE VOICES ----------------
+VOICES = [
+    "en-US-AriaNeural",
+    "en-US-GuyNeural",
+    "en-GB-RyanNeural",
+    "en-GB-SoniaNeural",
+    "th-TH-PremwadeeNeural",
+    "ja-JP-NanamiNeural",
+    "zh-CN-XiaoxiaoNeural",
 ]
 
-EN_FALLBACK = "en-US-AriaNeural"
-
-voice = st.selectbox("🎙️ Voice", MY_VOICES)
+voice = st.selectbox("🎙️ Voice", VOICES)
 
 text_input = st.text_area("📝 Text ထည့်ပါ", height=200)
 
@@ -41,14 +35,14 @@ SAMPLE_TEXT = "မင်္ဂလာပါ။ ဒီဟာက voice preview စ�
 # ---------------- PHONETIC ENGINE ----------------
 def myanmar_to_phonetic(text: str) -> str:
     rules = {
-        "က": "ka","ခ": "kha","ဂ": "ga","င": "nga",
-        "စ": "sa","ဆ": "hsa","ဇ": "za",
-        "တ": "ta","ထ": "hta","ဒ": "da","န": "na",
-        "ပ": "pa","ဖ": "pha","ဗ": "ba","မ": "ma",
-        "ယ": "ya","ရ": "ra","လ": "la","ဝ": "wa",
-        "သ": "tha","ဟ": "ha","အ": "a",
-        "ါ": "a","ာ": "a","ိ": "i","ီ": "i","ု": "u","ူ": "u",
-        "ေ": "e","ဲ": "ae","့":"","း":"",
+        "က":"ka","ခ":"kha","ဂ":"ga","င":"nga",
+        "စ":"sa","ဆ":"hsa","ဇ":"za",
+        "တ":"ta","ထ":"hta","ဒ":"da","န":"na",
+        "ပ":"pa","ဖ":"pha","ဗ":"ba","မ":"ma",
+        "ယ":"ya","ရ":"ra","လ":"la","ဝ":"wa",
+        "သ":"tha","ဟ":"ha","အ":"a",
+        "ါ":"a","ာ":"a","ိ":"i","ီ":"i","ု":"u","ူ":"u",
+        "ေ":"e","ဲ":"ae","့":"","း":"",
     }
 
     for k, v in rules.items():
@@ -57,7 +51,7 @@ def myanmar_to_phonetic(text: str) -> str:
     return text
 
 
-# ---------------- SPLIT ----------------
+# ---------------- SPLIT TEXT ----------------
 def split_text(text, max_len):
     text = text.strip()
     sentences = re.split(r"(?<=[.!?။])\s+", text)
@@ -77,25 +71,45 @@ def split_text(text, max_len):
     return chunks
 
 
-# ---------------- EDGE TTS ----------------
-async def tts(text, voice):
+# ---------------- SAFE EVENT LOOP ----------------
+def run_async(coro):
+    try:
+        loop = asyncio.get_event_loop()
+    except:
+        loop = asyncio.new_event_loop()
+
+    return loop.run_until_complete(coro)
+
+
+# ---------------- EDGE TTS CORE ----------------
+async def tts_engine(text, voice_name):
     audio = io.BytesIO()
 
     try:
-        comm = edge_tts.Communicate(text=text, voice=voice)
-    except:
-        text = myanmar_to_phonetic(text)
-        comm = edge_tts.Communicate(text=text, voice=EN_FALLBACK)
+        comm = edge_tts.Communicate(text=text, voice=voice_name)
 
-    async for msg in comm.stream():
-        if msg["type"] == "audio":
-            audio.write(msg["data"])
+        async for msg in comm.stream():
+            if msg["type"] == "audio":
+                audio.write(msg["data"])
+
+    except NoAudioReceived:
+        # fallback to phonetic + English voice
+        text = myanmar_to_phonetic(text)
+
+        comm = edge_tts.Communicate(
+            text=text,
+            voice="en-US-AriaNeural"
+        )
+
+        async for msg in comm.stream():
+            if msg["type"] == "audio":
+                audio.write(msg["data"])
 
     return audio.getvalue()
 
 
-def run_tts(text, voice):
-    return asyncio.run(tts(text, voice))
+def run_tts(text, voice_name):
+    return run_async(tts_engine(text, voice_name))
 
 
 # ---------------- VOICE PREVIEW ----------------
@@ -125,12 +139,12 @@ if st.button("🚀 Generate Speech"):
     results = []
     progress = st.progress(0)
 
-    for i, c in enumerate(chunks):
+    for i, chunk in enumerate(chunks):
         try:
-            audio = run_tts(c, voice)
+            audio = run_tts(chunk, voice)
             results.append((f"part_{i+1}.mp3", audio))
         except Exception as e:
-            st.error(f"Error {i+1}: {e}")
+            st.error(f"Error chunk {i+1}: {e}")
 
         progress.progress((i+1)/len(chunks))
         time.sleep(0.2)
