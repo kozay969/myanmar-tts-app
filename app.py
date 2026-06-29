@@ -4,7 +4,7 @@ import tempfile
 import os
 import asyncio
 
-st.set_page_config(page_title="Myanmar TTS - High Quality", page_icon="🔊", layout="centered")
+st.set_page_config(page_title="Myanmar TTS", page_icon="🔊", layout="centered")
 
 st.markdown("""
 <style>
@@ -15,67 +15,45 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🔊 Myanmar TTS - High Quality")
-st.caption("အရည်အသွေးမြင့် Edge TTS ကို အသုံးပြုထားသည်")
+st.title("🔊 Myanmar TTS")
+st.caption("Edge TTS ကို အသုံးပြုထားသည်")
 
 # Voice options
 voice_options = {
     "မြန်မာ - Nilar (အမျိုးသမီး)": "my-MM-NilarNeural",
     "မြန်မာ - Thiha (အမျိုးသား)": "my-MM-ThihaNeural",
-    "US English - Jenny (Neural)": "en-US-JennyNeural",
-    "US English - Guy (Neural)": "en-US-GuyNeural",
-    "UK English - Sonia (Neural)": "en-GB-SoniaNeural",
+    "US English - Jenny": "en-US-JennyNeural",
+    "US English - Guy": "en-US-GuyNeural",
+    "UK English - Sonia": "en-GB-SoniaNeural",
 }
 
-# ===== Voice Selection =====
-selected_voice_name = st.selectbox(
-    "🎤 Select Voice / အသံရွေးချယ်ပါ",
-    list(voice_options.keys())
-)
+selected_voice_name = st.selectbox("🎤 Select Voice", list(voice_options.keys()))
 selected_voice = voice_options[selected_voice_name]
 
-# ===== Quality Selection (အရည်အသွေး ၃ မျိုး) =====
-quality_options = {
-    "📀 Standard (48 kbps) - File size အသေး": "audio-24khz-48kbitrate-mono-mp3",
-    "💿 High (96 kbps) - File size အလယ်": "audio-24khz-96kbitrate-mono-mp3",
-    "🎵 Premium (160 kbps) - File size အကြီး": "audio-24khz-160kbitrate-mono-mp3",
-}
-
-selected_quality_name = st.selectbox(
-    "🔊 Audio Quality / အသံအရည်အသွေး",
-    list(quality_options.keys())
+# Quality (သတင်းအချက်အလက်အတွက်သာ)
+quality_info = st.radio(
+    "🔊 Audio Quality (သတင်းအချက်အလက်အတွက်သာ)",
+    ["📀 Standard (48 kbps)", "💿 High (96 kbps)", "🎵 Premium (160 kbps)"],
+    index=0
 )
-selected_quality = quality_options[selected_quality_name]
 
-# ===== Settings (Rate & Pitch) =====
 col1, col2 = st.columns(2)
 with col1:
-    rate = st.slider("🔊 Speech Speed", -50, 50, -5, 5)
+    rate = st.slider("Speed", -50, 50, 0)
     rate_str = f"{rate:+d}%"
 with col2:
-    pitch = st.slider("🎵 Pitch", -12, 12, 0, 1)
+    pitch = st.slider("Pitch", -12, 12, 0)
     pitch_str = f"{pitch:+d}Hz"
 
-# Text input
-text_input = st.text_area(
-    "📝 Enter text", 
-    height=150, 
-    placeholder="Type your text here..."
-)
+text_input = st.text_area("📝 Enter text", height=150, placeholder="Type your text here...")
 
-def generate_audio(text, voice, rate, pitch, quality):
+def generate_audio(text, voice, rate, pitch):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
             output_file = tmp_file.name
         
         async def run_tts():
-            communicate = edge_tts.Communicate(
-                text, 
-                voice, 
-                rate=rate, 
-                pitch=pitch,
-                output_format=quality  # အရည်အသွေးထည့်ပါ
-            )
+            communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
             await communicate.save(output_file)
         
         asyncio.run(run_tts())
@@ -87,14 +65,12 @@ def generate_audio(text, voice, rate, pitch, quality):
     except Exception as e:
         return None, str(e)
 
-if st.button("🚀 Generate High Quality Speech", use_container_width=True):
+if st.button("🚀 Generate Speech", use_container_width=True):
     if not text_input.strip():
         st.error("⚠️ Please enter some text!")
     else:
-        with st.spinner("🎤 Generating high quality audio..."):
-            audio_bytes, error = generate_audio(
-                text_input, selected_voice, rate_str, pitch_str, selected_quality
-            )
+        with st.spinner("Generating..."):
+            audio_bytes, error = generate_audio(text_input, selected_voice, rate_str, pitch_str)
             
             if error:
                 st.error(f"❌ Error: {error}")
@@ -107,7 +83,6 @@ if st.button("🚀 Generate High Quality Speech", use_container_width=True):
                     mime="audio/mp3",
                     use_container_width=True
                 )
-                st.success(f"✅ Audio generated successfully! (Quality: {selected_quality_name})")
+                st.success("✅ Done!")
 
-st.divider()
-st.caption("💡 Powered by Microsoft Edge TTS | Free to use")
+st.caption("💡 Powered by Microsoft Edge TTS")
