@@ -17,6 +17,7 @@ st.markdown("""
 st.title("🔊 Myanmar TTS - High Quality")
 st.caption("အရည်အသွေးမြင့် Edge TTS ကို အသုံးပြုထားသည်")
 
+# Voice options
 voice_options = {
     "မြန်မာ - Nilar (အမျိုးသမီး)": "my-MM-NilarNeural",
     "မြန်မာ - Thiha (အမျိုးသား)": "my-MM-ThihaNeural",
@@ -35,39 +36,25 @@ with st.sidebar:
     
     pitch = st.slider("Pitch", -12, 12, 0, 1)
     pitch_str = f"{pitch:+d}Hz"
-    
-    volume = st.slider("Volume", -50, 50, 20, 5)
-    volume_str = f"{volume:+d}%"
-    
-    # အရည်အသွေးရွေးချယ်မှု
-    quality = st.selectbox(
-        "Audio Quality",
-        ["Standard (48kbit)", "High (96kbit)", "Premium (160kbit)"],
-        index=1
-    )
-    
-    quality_map = {
-        "Standard (48kbit)": "audio-24khz-48kbitrate-mono-mp3",
-        "High (96kbit)": "audio-24khz-96kbitrate-mono-mp3",
-        "Premium (160kbit)": "audio-24khz-160kbitrate-mono-mp3",
-    }
-    output_format = quality_map[quality]
 
-text_input = st.text_area("📝 Enter text", height=150, placeholder="Type your text here...")
+text_input = st.text_area(
+    "📝 Enter text", 
+    height=150, 
+    placeholder="Type your text here..."
+)
 
-def generate_audio(text, voice, rate, pitch, volume, output_format):
+def generate_audio(text, voice, rate, pitch):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
             output_file = tmp_file.name
         
         async def run_tts():
+            # output_format ကို ဖယ်ထားပါ (ဗားရှင်းအဟောင်းနဲ့ အဆင်ပြေအောင်)
             communicate = edge_tts.Communicate(
                 text, 
                 voice, 
                 rate=rate, 
-                pitch=pitch,
-                volume=volume,
-                output_format=output_format
+                pitch=pitch
             )
             await communicate.save(output_file)
         
@@ -86,7 +73,7 @@ if st.button("🚀 Generate High Quality Speech", use_container_width=True):
     else:
         with st.spinner("🎤 Generating high quality audio..."):
             audio_bytes, error = generate_audio(
-                text_input, selected_voice, rate_str, pitch_str, volume_str, output_format
+                text_input, selected_voice, rate_str, pitch_str
             )
             
             if error:
@@ -94,13 +81,13 @@ if st.button("🚀 Generate High Quality Speech", use_container_width=True):
             else:
                 st.audio(audio_bytes, format="audio/mp3")
                 st.download_button(
-                    label="📥 Download High Quality MP3",
+                    label="📥 Download MP3",
                     data=audio_bytes,
-                    file_name="tts_high_quality.mp3",
+                    file_name="tts_output.mp3",
                     mime="audio/mp3",
                     use_container_width=True
                 )
-                st.success(f"✅ Audio generated successfully! (Quality: {quality})")
+                st.success("✅ Audio generated successfully!")
 
 st.divider()
-st.caption("💡 Powered by Microsoft Edge TTS | High Quality Mode")
+st.caption("💡 Powered by Microsoft Edge TTS | Free to use")
