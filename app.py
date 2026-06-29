@@ -1,31 +1,24 @@
 import streamlit as st
+import wave
 import zipfile
 import io
 import os
 from google import genai
 from google.genai import types
 
-# 1. UI Styling (CSS)
-st.markdown("""
-    <style>
-    .stApp { background-color: #0e1117; color: #ffffff; }
-    .stButton>button { width: 100%; border-radius: 20px; background: linear-gradient(90deg, #ff4b4b, #ff9e4b); color: white; font-weight: bold; }
-    </style>
-    """, unsafe_allow_html=True)
+# 1. Page Configuration
+st.set_page_config(page_title="Gemini TTS Pro", layout="centered")
+st.title("🎙️ Gemini 2.5 Flash Preview TTS")
+st.write("✅ Auto Split | 📊 Progress Bar | 📁 ZIP Download | 🛡️ Error Handling")
 
-# 2. Page Setup
-st.set_page_config(page_title="Gemini TTS Pro", page_icon="🎙️", layout="centered")
-st.title("🎙️ Gemini 2.5 Flash TTS Pro")
-st.markdown("---")
-
-# 3. API Key & Client
+# 2. API Key Check
 api_key = st.secrets.get("GEMINI_API_KEY")
 if not api_key:
-    st.error("❌ GEMINI_API_KEY ကို Streamlit Secrets တွင် စစ်ဆေးပါ")
+    st.error("❌ GEMINI_API_KEY မတွေ့ပါ (Secrets တွင် စစ်ဆေးပါ)")
     st.stop()
 client = genai.Client(api_key=api_key)
 
-# 4. Helper Functions
+# 3. Helper Functions
 def split_text(text, max_chars=1000):
     text = text.strip()
     if len(text) <= max_chars: return [text]
@@ -39,27 +32,23 @@ def split_text(text, max_chars=1000):
     if text: chunks.append(text)
     return chunks
 
-# 5. UI Components
-col1, col2 = st.columns([1, 1])
-with col1:
-    voice = st.selectbox("🎙️ Voice Select", ["Kore", "Aoede", "Charon", "Fenrir", "Puck"])
-with col2:
-    split_len = st.number_input("Split Size (Chars)", 500, 3000, 1000)
+# 4. User Inputs
+voice = st.selectbox("🎙️ Voice", ["Kore", "Aoede", "Charon", "Fenrir", "Puck"])
+text_input = st.text_area("စာသားများ ထည့်သွင်းပါ:", height=250)
 
-text_input = st.text_area("စာသားများ ထည့်သွင်းပါ:", height=200, placeholder="ဒီနေရာမှာ စာသားရိုက်ထည့်ပါ...")
-
-# 6. Generation Logic
-if st.button("🚀 GENERATE & ZIP"):
+# 5. Generation Logic
+if st.button("🚀 Generate & ZIP"):
     if not text_input.strip():
-        st.warning("စာသားအနည်းငယ် ထည့်သွင်းပေးပါ")
+        st.warning("စာသားအနည်းငယ် ထည့်သွင်းပေးပါ။")
     else:
         try:
-            chunks = split_text(text_input, max_chars=split_len)
+            chunks = split_text(text_input)
             progress_bar = st.progress(0)
             zip_buffer = io.BytesIO()
             
             with zipfile.ZipFile(zip_buffer, 'w') as zf:
                 for i, chunk in enumerate(chunks):
+                    # Gemini API Call
                     response = client.models.generate_content(
                         model="gemini-2.5-flash-preview-tts",
                         contents=chunk,
@@ -72,14 +61,18 @@ if st.button("🚀 GENERATE & ZIP"):
                             ),
                         ),
                     )
+                    
                     audio_data = response.candidates[0].content.parts[0].inline_data.data
                     zf.writestr(f"audio_part_{i+1}.wav", audio_data)
                     progress_bar.progress((i + 1) / len(chunks))
             
-            st.balloons()
-            st.success("✅ အောင်မြင်စွာ ဖန်တီးပြီးပါပြီ!")
-            st.download_button("📥 Download ZIP", zip_buffer.getvalue(), "gemini_tts.zip", "application/zip", use_container_width=True)
-            
+            st.success("✅ အားလုံးပြီးဆုံးပါပြီ!")
+            st.download_button(
+                label="📥 Download ZIP",
+                data=zip_buffer.getvalue(),
+                file_name="gemini_tts_output.zip",
+                mime="application/zip"
+            )
         except Exception as e:
-            st.error(f"🛡️ အမှားအယွင်းရှိသည်: {e}")
+            st.error(f"🛡️ Error ဖြစ်ပေါ်ပါသည်: {e}")
 
