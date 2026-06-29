@@ -1,7 +1,6 @@
 import streamlit as st
 from google import genai
-from google.genai import types
-import wave
+
 # --------------------
 # Page
 # --------------------
@@ -62,7 +61,22 @@ def save_wave(filename, pcm):
         wf.setsampwidth(2)
         wf.setframerate(24000)
         wf.writeframes(pcm)
+def split_text(text, max_chars=3000):
+    chunks = []
 
+    while len(text) > max_chars:
+        pos = text.rfind("။", 0, max_chars)
+
+        if pos == -1:
+            pos = max_chars
+
+        chunks.append(text[:pos + 1])
+        text = text[pos + 1:]
+
+    if text.strip():
+        chunks.append(text)
+
+    return chunks
 if generate:
 
     if not text.strip():
