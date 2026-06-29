@@ -8,10 +8,10 @@ import edge_tts
 
 st.set_page_config(page_title="Myanmar Edge TTS", page_icon="🔊")
 
-st.title("🔊 Myanmar Edge TTS (12 Voices)")
-st.caption("GitHub + Streamlit Cloud Ready • Free TTS")
+st.title("🔊 Myanmar Edge TTS Pro")
+st.caption("Voice Preview • Phonetic Fallback • GitHub Ready")
 
-# ---------- MYANMAR VOICES ----------
+# ---------------- VOICES ----------------
 MY_VOICES = [
     "my-MM-NilarNeural",
     "my-MM-ThazinNeural",
@@ -27,13 +27,37 @@ MY_VOICES = [
     "my-MM-WutyiNeural",
 ]
 
-voice = st.selectbox("🎙️ Myanmar Voice", MY_VOICES)
+EN_FALLBACK = "en-US-AriaNeural"
 
-text_input = st.text_area("📝 Text ထည့်ပါ", height=250)
+voice = st.selectbox("🎙️ Voice", MY_VOICES)
+
+text_input = st.text_area("📝 Text ထည့်ပါ", height=200)
 
 max_chars = st.slider("Chunk size", 300, 4000, 1200)
 
-# ---------- SPLIT ----------
+# ---------------- SAMPLE ----------------
+SAMPLE_TEXT = "မင်္ဂလာပါ။ ဒီဟာက voice preview စမ်းသပ်ခြင်းဖြစ်ပါတယ်။"
+
+# ---------------- PHONETIC ENGINE ----------------
+def myanmar_to_phonetic(text: str) -> str:
+    rules = {
+        "က": "ka","ခ": "kha","ဂ": "ga","င": "nga",
+        "စ": "sa","ဆ": "hsa","ဇ": "za",
+        "တ": "ta","ထ": "hta","ဒ": "da","န": "na",
+        "ပ": "pa","ဖ": "pha","ဗ": "ba","မ": "ma",
+        "ယ": "ya","ရ": "ra","လ": "la","ဝ": "wa",
+        "သ": "tha","ဟ": "ha","အ": "a",
+        "ါ": "a","ာ": "a","ိ": "i","ီ": "i","ု": "u","ူ": "u",
+        "ေ": "e","ဲ": "ae","့":"","း":"",
+    }
+
+    for k, v in rules.items():
+        text = text.replace(k, v)
+
+    return text
+
+
+# ---------------- SPLIT ----------------
 def split_text(text, max_len):
     text = text.strip()
     sentences = re.split(r"(?<=[.!?။])\s+", text)
@@ -43,7 +67,8 @@ def split_text(text, max_len):
         if len(cur) + len(s) <= max_len:
             cur += " " + s
         else:
-            chunks.append(cur.strip())
+            if cur:
+                chunks.append(cur.strip())
             cur = s
 
     if cur:
@@ -52,12 +77,17 @@ def split_text(text, max_len):
     return chunks
 
 
-# ---------- EDGE TTS ----------
+# ---------------- EDGE TTS ----------------
 async def tts(text, voice):
-    communicate = edge_tts.Communicate(text=text, voice=voice)
     audio = io.BytesIO()
 
-    async for msg in communicate.stream():
+    try:
+        comm = edge_tts.Communicate(text=text, voice=voice)
+    except:
+        text = myanmar_to_phonetic(text)
+        comm = edge_tts.Communicate(text=text, voice=EN_FALLBACK)
+
+    async for msg in comm.stream():
         if msg["type"] == "audio":
             audio.write(msg["data"])
 
@@ -68,7 +98,21 @@ def run_tts(text, voice):
     return asyncio.run(tts(text, voice))
 
 
-# ---------- MAIN ----------
+# ---------------- VOICE PREVIEW ----------------
+st.subheader("🎧 Voice Preview")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("🔊 Preview Voice"):
+        audio = run_tts(SAMPLE_TEXT, voice)
+        st.audio(audio, format="audio/mp3")
+
+with col2:
+    st.info("Voice မရွေးခင် စမ်းနားထောင်ပါ")
+
+
+# ---------------- MAIN ----------------
 if st.button("🚀 Generate Speech"):
 
     if not text_input.strip():
@@ -86,19 +130,22 @@ if st.button("🚀 Generate Speech"):
             audio = run_tts(c, voice)
             results.append((f"part_{i+1}.mp3", audio))
         except Exception as e:
-            st.error(f"Error chunk {i+1}: {e}")
+            st.error(f"Error {i+1}: {e}")
 
         progress.progress((i+1)/len(chunks))
-        time.sleep(0.3)
+        time.sleep(0.2)
 
-    # ---------- OUTPUT ----------
+    # ---------------- OUTPUT ----------------
+    st.subheader("🎧 Output")
+
     for name, audio in results:
         st.audio(audio, format="audio/mp3")
-        st.download_button("⬇️ Download " + name, audio, name, "audio/mp3")
+        st.download_button("⬇️ " + name, audio, name, "audio/mp3")
 
-    # ZIP
+    # ---------------- ZIP ----------------
     zip_buf = io.BytesIO()
-    with zipfile.ZipFile(zip_buf, "w") as z:
+
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as z:
         for name, audio in results:
             z.writestr(name, audio)
 
