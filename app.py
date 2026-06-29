@@ -11,12 +11,16 @@ st.title("🎙️ မြန်မာအသံ (၁၂) မျိုး - Edge TT
 
 # ---------- အသံ (၁၂) မျိုး စနစ် ----------
 voice_options = {}
-# အမျိုးသမီးအသံ ၆ မျိုး (Nilar)
-for speed in [0.8, 0.9, 1.0, 1.1, 1.2, 1.3]:
-    voice_options[f"Nilar (Female) - အမြန်နှုန်း {speed}x"] = ("my-MM-NilarNeural", f"{int((speed-1)*100)}%")
-# အမျိုးသားအသံ ၆ မျိုး (Win Tun)
-for speed in [0.8, 0.9, 1.0, 1.1, 1.2, 1.3]:
-    voice_options[f"Win Tun (Male) - အမြန်နှုန်း {speed}x"] = ("my-MM-WinTunNeural", f"{int((speed-1)*100)}%")
+# Speed 0.8x to 1.3x 
+# Note: edge-tts uses strings like "+30%" or "-20%"
+speeds = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3]
+for speed in speeds:
+    # Calculate percentage difference from 1.0 (e.g., 1.3 is +30%)
+    rate_val = int((speed - 1) * 100)
+    rate_str = f"{rate_val:+d}%" # formats as +30%, -20%, etc.
+    
+    voice_options[f"Nilar (Female) - Speed {speed}x"] = ("my-MM-NilarNeural", rate_str)
+    voice_options[f"Win Tun (Male) - Speed {speed}x"] = ("my-MM-WinTunNeural", rate_str)
 
 selected_label = st.selectbox("အသံ (၁၂) မျိုးမှ ရွေးချယ်ပါ", list(voice_options.keys()))
 voice_id, speed_rate = voice_options[selected_label]
@@ -61,6 +65,7 @@ if st.button("🚀 GENERATE & ZIP", type="primary", use_container_width=True):
         try:
             for i, chunk in enumerate(chunks):
                 progress_bar.progress((i + 1) / len(chunks), text=f"အပိုင်း {i+1} ကို အသံထုတ်နေသည်...")
+                # Run the async function
                 audio_bytes = asyncio.run(generate_edge_tts(chunk, voice_id, speed_rate))
                 audio_files.append((f"part_{i+1}.mp3", audio_bytes))
             
