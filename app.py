@@ -1,171 +1,73 @@
 import streamlit as st
-import io
-import re
-import time
 import asyncio
-import zipfile
 import edge_tts
-from edge_tts.exceptions import NoAudioReceived
+import tempfile
+import os
 
-st.set_page_config(page_title="Myanmar Edge TTS Pro", page_icon="🔊")
+# App ရဲ့ ခေါင်းစဉ်နဲ့ ဖော်ပြချက်
+st.set_page_config(page_title="Edge TTS စမ်းသပ်မှု", page_icon="🔊")
+st.title("🔊 Edge TTS ဖြင့် စာသားမှ အသံပြောင်းခြင်း")
+st.caption("Microsoft Edge ရဲ့ အခမဲ့ TTS ဝန်ဆောင်မှုကို အသုံးပြုထားသည်။")
 
-st.title("🔊 Myanmar Edge TTS Pro (FIXED)")
-st.caption("Voice Preview • Safe Fallback • GitHub Ready")
+# အသုံးပြုနိုင်မယ့် နမူနာအသံများ (အားလုံးကို `edge-tts --list-voices` နဲ့ ကြည့်နိုင်ပါတယ်)
+voice_options = {
+    "အမေရိကန် အင်္ဂလိပ် - Jenny (အမျိုးသမီး)": "en-US-JennyNeural",
+    "အမေရိကန် အင်္ဂလိပ် - Guy (အမျိုးသား)": "en-US-GuyNeural",
+    "ဗြိတိသျှ အင်္ဂလိပ် - Sonia (အမျိုးသမီး)": "en-GB-SoniaNeural",
+    "စပိန် - Alvaro (အမျိုးသား)": "es-ES-AlvaroNeural",
+    "ပြင်သစ် - Denise (အမျိုးသမီး)": "fr-FR-DeniseNeural",
+}
 
-# ---------------- REAL EDGE VOICES ----------------
-VOICES = [
-    "en-US-AriaNeural",
-    "en-US-GuyNeural",
-    "en-GB-RyanNeural",
-    "en-GB-SoniaNeural",
-    "th-TH-PremwadeeNeural",
-    "ja-JP-NanamiNeural",
-    "zh-CN-XiaoxiaoNeural",
-]
+# ဘေးဘားမှာ အသံရွေးချယ်မှုများ
+with st.sidebar:
+    st.header("အသံရွေးချယ်မှုများ")
+    selected_voice_name = st.selectbox("အသံအမျိုးအစား", list(voice_options.keys()))
+    selected_voice = voice_options[selected_voice_name]
+    
+    rate = st.slider("စကားပြောနှုန်း", -50, 100, 0, 5, help="-50% မှ +100% အထိ ချိန်ညှိနိုင်သည်။")
+    rate_str = f"{rate:+d}%"  # +0%, -20%, +30% စသဖြင့်
+    
+    pitch = st.slider("အသံအနိမ့်အမြင့်", -12, 12, 0, 1, help="-12Hz မှ +12Hz အထိ ချိန်ညှိနိုင်သည်။")
+    pitch_str = f"{pitch:+d}Hz"  # +0Hz, -5Hz, +8Hz စသဖြင့်
 
-voice = st.selectbox("🎙️ Voice", VOICES)
+# စာသားထည့်ရန် နေရာ
+text_input = st.text_area("အသံဖိုင်အဖြစ် ပြောင်းလိုသော စာသားကို ရိုက်ထည့်ပါ။", height=200)
 
-text_input = st.text_area("📝 Text ထည့်ပါ", height=200)
+# အသံပြောင်းရန် ခလုတ်
+if st.button("အသံဖိုင် ထုတ်ယူမည်", type="primary"):
+    if not text_input:
+        st.warning("ကျေးဇူးပြု၍ စာသားတစ်ခုခု ရိုက်ထည့်ပါ။")
+    else:
+        with st.spinner("အသံဖိုင် ပြင်ဆင်နေသည်... ကျေးဇူးပြု၍ စောင့်ပါ။"):
+            try:
+                # ယာယီဖိုင် တစ်ခု ဖန်တီးပါ
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+                    output_file = tmp_file.name
+                
+                # edge_tts ကို asynchronous ဖြင့် ခေါ်ပါ
+                communicate = edge_tts.Communicate(text_input, selected_voice, rate=rate_str, pitch=pitch_str)
+                await communicate.save(output_file)
+                
+                # ဖိုင်ကို ဖတ်ပြီး ပြသရန်
+                with open(output_file, "rb") as f:
+                    audio_bytes = f.read()
+                
+                # အသံဖိုင်ကို ဖွင့်ပြပါ
+                st.audio(audio_bytes, format="audio/mp3")
+                
+                # Download ခလုတ် ထည့်ပါ
+                st.download_button(
+                    label="📥 အသံဖိုင် ဒေါင်းလုဒ်လုပ်မည် (MP3)",
+                    data=audio_bytes,
+                    file_name="output.mp3",
+                    mime="audio/mp3",
+                )
+                
+                # ယာယီဖိုင်ကို ဖျက်ပါ
+                os.unlink(output_file)
+                
+                st.success("အသံဖိုင် အောင်မြင်စွာ ထုတ်ယူပြီးပါပြီ။")
+                
+            except Exception as e:
+                st.error(f"အမှားတစ်ခု ဖြစ်ပွားခဲ့ပါသည်။ အသေးစိတ်: {e}")
 
-max_chars = st.slider("Chunk size", 300, 4000, 1200)
-
-# ---------------- SAMPLE ----------------
-SAMPLE_TEXT = "မင်္ဂလာပါ။ ဒီဟာက voice preview စမ်းသပ်ခြင်းဖြစ်ပါတယ်။"
-
-# ---------------- PHONETIC ENGINE ----------------
-def myanmar_to_phonetic(text: str) -> str:
-    rules = {
-        "က":"ka","ခ":"kha","ဂ":"ga","င":"nga",
-        "စ":"sa","ဆ":"hsa","ဇ":"za",
-        "တ":"ta","ထ":"hta","ဒ":"da","န":"na",
-        "ပ":"pa","ဖ":"pha","ဗ":"ba","မ":"ma",
-        "ယ":"ya","ရ":"ra","လ":"la","ဝ":"wa",
-        "သ":"tha","ဟ":"ha","အ":"a",
-        "ါ":"a","ာ":"a","ိ":"i","ီ":"i","ု":"u","ူ":"u",
-        "ေ":"e","ဲ":"ae","့":"","း":"",
-    }
-
-    for k, v in rules.items():
-        text = text.replace(k, v)
-
-    return text
-
-
-# ---------------- SPLIT TEXT ----------------
-def split_text(text, max_len):
-    text = text.strip()
-    sentences = re.split(r"(?<=[.!?။])\s+", text)
-    chunks, cur = [], ""
-
-    for s in sentences:
-        if len(cur) + len(s) <= max_len:
-            cur += " " + s
-        else:
-            if cur:
-                chunks.append(cur.strip())
-            cur = s
-
-    if cur:
-        chunks.append(cur.strip())
-
-    return chunks
-
-
-# ---------------- SAFE EVENT LOOP ----------------
-def run_async(coro):
-    try:
-        loop = asyncio.get_event_loop()
-    except:
-        loop = asyncio.new_event_loop()
-
-    return loop.run_until_complete(coro)
-
-
-# ---------------- EDGE TTS CORE ----------------
-async def tts_engine(text, voice_name):
-    audio = io.BytesIO()
-
-    try:
-        comm = edge_tts.Communicate(text=text, voice=voice_name)
-
-        async for msg in comm.stream():
-            if msg["type"] == "audio":
-                audio.write(msg["data"])
-
-    except NoAudioReceived:
-        # fallback to phonetic + English voice
-        text = myanmar_to_phonetic(text)
-
-        comm = edge_tts.Communicate(
-            text=text,
-            voice="en-US-AriaNeural"
-        )
-
-        async for msg in comm.stream():
-            if msg["type"] == "audio":
-                audio.write(msg["data"])
-
-    return audio.getvalue()
-
-
-def run_tts(text, voice_name):
-    return run_async(tts_engine(text, voice_name))
-
-
-# ---------------- VOICE PREVIEW ----------------
-st.subheader("🎧 Voice Preview")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    if st.button("🔊 Preview Voice"):
-        audio = run_tts(SAMPLE_TEXT, voice)
-        st.audio(audio, format="audio/mp3")
-
-with col2:
-    st.info("Voice မရွေးခင် စမ်းနားထောင်ပါ")
-
-
-# ---------------- MAIN ----------------
-if st.button("🚀 Generate Speech"):
-
-    if not text_input.strip():
-        st.error("Text ထည့်ပါ")
-        st.stop()
-
-    chunks = split_text(text_input, max_chars)
-    st.info(f"Chunks: {len(chunks)}")
-
-    results = []
-    progress = st.progress(0)
-
-    for i, chunk in enumerate(chunks):
-        try:
-            audio = run_tts(chunk, voice)
-            results.append((f"part_{i+1}.mp3", audio))
-        except Exception as e:
-            st.error(f"Error chunk {i+1}: {e}")
-
-        progress.progress((i+1)/len(chunks))
-        time.sleep(0.2)
-
-    # ---------------- OUTPUT ----------------
-    st.subheader("🎧 Output")
-
-    for name, audio in results:
-        st.audio(audio, format="audio/mp3")
-        st.download_button("⬇️ " + name, audio, name, "audio/mp3")
-
-    # ---------------- ZIP ----------------
-    zip_buf = io.BytesIO()
-
-    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for name, audio in results:
-            z.writestr(name, audio)
-
-    st.download_button(
-        "⬇️ Download All ZIP",
-        zip_buf.getvalue(),
-        "myanmar_tts.zip",
-        "application/zip"
-    )
