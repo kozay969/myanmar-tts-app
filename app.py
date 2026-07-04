@@ -2,13 +2,12 @@ import streamlit as st
 import edge_tts
 import tempfile
 import os
-import asyncio
 import re
 
 st.set_page_config(page_title="Myanmar TTS Pro", page_icon="🎭", layout="centered")
 
 st.title("🎭 Myanmar TTS - Style 15 မျိုး")
-st.caption("SSML အသံထွက်မှန်အောင် ပြင်ပြီးသား")
+st.caption("Button Error ပြင်ပြီးသား ✅")
 
 voice_options = {
     "မြန်မာ - Nilar (မိန်းကလေး)": "my-MM-NilarNeural",
@@ -44,7 +43,6 @@ auto_emphasis = st.checkbox("Auto အလေးပေး", value=True)
 text_input = st.text_area("📝 စာသားထည့်ပါ:", height=200, placeholder="မင်္ဂလာပါ။ ဒီနေ့ ရာသီဥတု အရမ်းကောင်းပါတယ်။")
 
 def create_pro_ssml(text, voice, style_cfg, auto_emp):
-    # စာကြောင်းခွဲပြီး Break ထည့်မယ်
     sentences = re.split(r'([။.!?])', text)
     processed = []
 
@@ -53,8 +51,72 @@ def create_pro_ssml(text, voice, style_cfg, auto_emp):
         punct = sentences[i+1] if i+1 < len(sentences) else ""
 
         if sentence:
-            # Auto Emphasis
             if auto_emp:
                 keywords = ['အရမ်း', 'အရမ်းကို', 'တကယ်', 'လုံးဝ', 'အံ့သြ', 'မင်္ဂလာပါ', 'ကျေးဇူးတင်ပါတယ်', 'ချစ်တယ်', 'မုန်းတယ်']
                 for kw in keywords:
                     sentence = sentence.replace(kw, f'<emphasis level="moderate">{kw}</emphasis>')
+
+            processed.append(f"{sentence}{punct}<break time='{style_cfg['break']}'/>")
+
+    full_text = " ".join(processed)
+
+    ssml = f"""<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="my-MM">
+    <voice name="{voice}">
+        <prosody rate="{style_cfg['rate']}" pitch="{style_cfg['pitch']}" volume="{style_cfg['volume']}">
+            {full_text}
+        </prosody>
+    </voice>
+</speak>"""
+    return ssml
+
+# ဒါက အရေးကြီးတယ် - asyncio မသုံးတော့ဘူး
+def generate_audio_sync(ssml_text, voice):
+    import asyncio
+    
+    async def _generate():
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+            output_file = tmp_file.name
+
+        communicate = edge_tts.Communicate(ssml_text, voice)
+        await communicate.save(output_file)
+
+        with open(output_file, "rb") as f:
+            audio_bytes = f.read()
+        os.unlink(output_file)
+        return audio_bytes
+    
+    # Streamlit နဲ့ အဆင်ပြေအောင် loop အသစ်ဆောက်မယ်
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    return loop.run_until_complete(_generate())
+
+# ခလုတ်က ဒီမှာရှိတယ် ✅
+if st.button("🚀 အသံထုတ်မယ်", use_container_width=True, type="primary"):
+    if not text_input.strip():
+        st.error("⚠️ စာသားအရင်ထည့်ပါ!")
+    else:
+        with st.spinner(f'{selected_style} စတိုင်နဲ့ ထုတ်နေတယ်...'):
+            try:
+                ssml = create_pro_ssml(text_input, selected_voice, style_config, auto_emphasis)
+                
+                with st.expander("🔍 SSML Code ကြည့်မယ်"):
+                    st.code(ssml, language="xml")
+
+                audio_bytes = generate_audio_sync(ssml, selected_voice)
+                st.success("✅ ရပြီ!")
+                st.audio(audio_bytes, format="audio/mp3")
+                st.download_button(
+                    "📥 MP3 Download",
+                    audio_bytes,
+                    f"tts_{selected_style[:2]}.mp3",
+                    "audio/mp3",
+                    use_container_width=True
+                )
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
+
+st.caption("✅ Button Error Fix ပြီးသား | SSML မဖတ်တော့ဘူး")
