@@ -7,7 +7,7 @@ import asyncio
 st.set_page_config(page_title="Myanmar TTS Pro", page_icon="🎭", layout="centered")
 
 st.title("🎭 Myanmar TTS - Style 15 မျိုး")
-st.caption("SyntaxError Fix ပြီးသား ✅")
+st.caption("Syntax Error Fix ပြီးသား ✅")
 
 voice_options = {
     "မြန်မာ - Nilar (မိန်းကလေး)": "my-MM-NilarNeural",
@@ -43,10 +43,55 @@ st.info(f"**{selected_style}** | Speed: {style_config['rate']} | Pitch: {style_c
 with st.expander("⚙️ ကိုယ်တိုင်ချိန်မယ်"):
     c1, c2, c3 = st.columns(3)
     with c1:
-        custom_rate = st.slider("Speed", -50, 50, int(style_config['rate'].replace('%','').replace('+','')))
+        custom_rate = st.slider("Speed", -50, 50, int(style_config["rate"].replace("%","").replace("+","")))
     with c2:
-        custom_pitch = st.slider("Pitch", -10, 10, int(style_config['pitch'].replace('Hz','').replace('+','')))
+        custom_pitch = st.slider("Pitch", -10, 10, int(style_config["pitch"].replace("Hz","").replace("+","")))
     with c3:
-        custom_volume = st.slider("Volume", -50, 50, int(style_config['volume'].replace('%','').replace('+','')))
+        custom_volume = st.slider("Volume", -50, 50, int(style_config["volume"].replace("%","").replace("+","")))
     
-    style_config['rate
+    style_config["rate"] = f"{custom_rate:+d}%"
+    style_config["pitch"] = f"{custom_pitch:+d}Hz"
+    style_config["volume"] = f"{custom_volume:+d}%"
+
+text_input = st.text_area("📝 စာသားထည့်ပါ:", height=200, placeholder="မင်္ဂလာပါ။ ဒီနေ့ ရာသီဥတု အရမ်းကောင်းပါတယ်။")
+
+def add_pause(text):
+    text = text.replace("။", "။ ... ")
+    text = text.replace(".", ". ... ")
+    text = text.replace("!", "! ... ")
+    text = text.replace("?", "? ... ")
+    return text
+
+def generate_audio_sync(text, voice, rate, pitch, volume):
+    async def _generate():
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+            output_file = tmp_file.name
+
+        communicate = edge_tts.Communicate(
+            text, 
+            voice,
+            rate=rate,
+            pitch=pitch,
+            volume=volume
+        )
+        await communicate.save(output_file)
+
+        with open(output_file, "rb") as f:
+            audio_bytes = f.read()
+        os.unlink(output_file)
+        return audio_bytes
+    
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    return loop.run_until_complete(_generate())
+
+if st.button("🚀 အသံထုတ်မယ်", use_container_width=True, type="primary"):
+    if not text_input.strip():
+        st.error("⚠️ စာသားအရင်ထည့်ပါ!")
+    else:
+        with st.spinner(f"{selected_style} စတိုင်နဲ့ ထုတ်နေတယ်..."):
+           
