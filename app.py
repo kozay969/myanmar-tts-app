@@ -1,70 +1,109 @@
 import streamlit as st
+import asyncio
+import edge_tts
 from openai import OpenAI
 import io
 
-# 1. App Configuration
-st.set_page_config(page_title="Studio-Grade Myanmar AI TTS", page_icon="🇲🇲")
-st.title("Studio-Grade မြန်မာ AI အသံထွက်စနစ်")
+# 1. APPLICATION SETUP
+st.set_page_config(
+    page_title="Hybrid Myanmar AI TTS", 
+    page_icon="🇲🇲", 
+    layout="centered"
+)
+
+st.title("Advanced Hybrid မြန်မာ AI အသံထွက်စနစ်")
 st.markdown("---")
+st.write("Premium OpenAI (Studio) နှင့် Free Edge-TTS အင်ဂျင်နှစ်ခုလုံးကို ဉာဏ်ရည်ထက်မြက်စွာ ပေါင်းစပ်ထားသော စနစ်ဖြစ်ပါသည်။")
 
-# OpenAI Client Initialization (Securely fetching API key)
-# Streamlit secrets ကိုသုံးခြင်းဖြင့် GitHub ပေါ်တွင် Key များ ပေါက်ကြားမှုကို ၁၀၀% ကာကွယ်ပေးသည်
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-# 2. Advanced Voice Matrix (Premium Human-like Voices)
-# OpenAI ၏ HD Models များသည် စကားလုံးအဖြတ်အတောက်နှင့် လေယူလေသိမ်းကို လူသားအတိုင်း ဖန်တီးပေးသည်
-VOICES = {
+# 2. VOICE DEFINITIONS MATCHING
+OPENAI_VOICES = {
     "🎙️ Alloy (သဘာဝကျသော အသံစုံ)": "alloy",
-    "🎙️ Echo (ပီသပြတ်သားသော အမျိုးသားသံ)": "echo",
-    "🎙️ Shimmer (ကြည်လင်သော အမျိုးသမီးသံ)": "shimmer"
+    "🎙️ Echo (အမျိုးသားသံပြတ်သား)": "echo",
+    "🎙️ Shimmer (အမျိုးသမီးသံကြည်လင်)": "shimmer"
 }
 
-# 3. User Interface Layout
+EDGE_VOICES = {
+    "🧑 ပြုံးချို (အမျိုးသားသံ - Free)": "my-MM-ThihaNeural",
+    "👩 နန်းခင်ဇာ (အမျိုးသမီးသံ - Free)": "my-MM-NilarNeural"
+}
+
+# 3. USER INTERFACE (UI) LAYOUT
 user_text = st.text_area(
     "မြန်မာစာသားများကို ဒီနေရာမှာ ရိုက်ထည့်ပါ -", 
     height=180,
-    placeholder="ဥပမာ။ ။ နည်းပညာ တိုးတက်လာတာနဲ့အမျှ AI စနစ်တွေဟာ နေ့စဉ်ဘဝမှာ ပိုမို အရေးပါလာနေပါတယ်။"
+    placeholder="စာသားများ ရိုက်ထည့်ပါ..."
 )
 
-selected_voice = st.selectbox("အသုံးပြုမည့် Premium Voice ကို ရွေးချယ်ပါ -", list(VOICES.keys()))
-voice_id = VOICES[selected_voice]
+# အင်ဂျင်ရွေးချယ်မှုအပိုင်း
+engine_mode = st.radio(
+    "အသံထုတ်လုပ်မည့် စနစ်ကို ရွေးချယ်ပါ -",
+    ["🆓 အခမဲ့စနစ် (Standard Free)", "✨ စတူဒီယိုအဆင့်မြင့်စနစ် (OpenAI Premium)"],
+    horizontal=True
+)
 
-# 4. Core Audio Generation Pipeline
-def generate_studio_audio(text: str, voice: str) -> bytes:
-    """
-    OpenAI TTS-1-HD model ကိုသုံးပြီး Buffer အဖြစ် Memory ပေါ်တွင် တိုက်ရိုက်အသံထုတ်လုပ်ပေးသည့် Core Logic။
-    HD model သည် Compression rate နည်းပြီး Audio frequency ပိုမိုမြင့်မားသဖြင့် Studio အရည်အသွေး ရရှိစေသည်။
-    """
+if engine_mode == "🆓 အခမဲ့စနစ် (Standard Free)":
+    selected_voice_label = st.selectbox("အသုံးပြုမည့် AI အသံကို ရွေးချယ်ပါ -", list(EDGE_VOICES.keys()))
+    voice_id = EDGE_VOICES[selected_voice_label]
+else:
+    selected_voice_label = st.selectbox("အသုံးပြုမည့် Premium Voice ကို ရွေးချယ်ပါ -", list(OPENAI_VOICES.keys()))
+    voice_id = OPENAI_VOICES[selected_voice_label]
+
+# 4. CORE ENGINE PIPELINES
+async def generate_edge_tts(text: str, voice: str) -> bytes:
+    """အလကားရပြီး စိတ်ချရသော Edge-TTS Engine"""
+    communicate = edge_tts.Communicate(text=text, voice=voice, rate="-10%")
+    audio_buffer = io.BytesIO()
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            audio_buffer.write(chunk["data"])
+    audio_buffer.seek(0)
+    return audio_buffer.getvalue()
+
+def generate_openai_tts(text: str, voice: str) -> bytes:
+    """အသံအကောင်းဆုံး OpenAI Premium Engine"""
+    client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY", ""))
     response = client.audio.speech.create(
-        model="tts-1-hd", # High-Definition Model အား အသုံးပြုထားသည်
+        model="tts-1-hd",
         voice=voice,
         input=text
     )
-    
-    # Binary Response ကို Memory ပေါ်တွင် တိုက်ရိုက် Stream လုပ်ခြင်း
     return response.content
 
-# 5. Execution Logic
-if st.button("Premium AI အသံဖန်တီးမယ်", type="primary", use_container_width=True):
+# 5. EXECUTION CONTROLLER
+if st.button("AI အသံဖန်တီးမယ်", type="primary", use_container_width=True):
     if not user_text.strip():
-        st.warning("⚠️ ကျေးဇူးပြု၍ စာသားရိုက်ထည့်ပေးပါ။")
+        st.warning("⚠️ ကျေးဇူးပြု၍ စာသားအရင်ရိုက်ထည့်ပါ။")
     else:
-        with st.spinner("⏳ Studio Quality ဖြင့် အသံဖိုင်ကို အကောင်းဆုံး ချက်လုပ်နေပါသည်..."):
-            try:
-                # API Call & Memory Handling
-                audio_bytes = generate_studio_audio(user_text, voice_id)
-                
-                st.success("🎉 အဆင့်မြင့် Premium အသံဖိုင် ထွက်ပေါ်လာပါပြီ။")
+        with st.spinner("⏳ AI စနစ်မှ အသံဖိုင်ကို အကောင်းဆုံး ချက်လုပ်နေပါသည်..."):
+            audio_bytes = None
+            success_mode = ""
+            
+            # အသုံးပြုသူက Premium ရွေးထားလျှင်
+            if engine_mode == "✨ စတူဒီယိုအဆင့်မြင့်စနစ် (OpenAI Premium)":
+                try:
+                    audio_bytes = generate_openai_tts(user_text, voice_id)
+                    success_mode = "Premium Studio Quality"
+                except Exception as e:
+                    # OpenAI တွင် ပိုက်ဆံကုန်ခြင်း သို့မဟုတ် Error တက်ပါက အလကားစနစ်သို့ အလိုအလျောက် ပြောင်းလဲခြင်း (Smart Fallback Architecture)
+                    st.info("ℹ️ OpenAI Quota ကုန်နေသဖြင့် အခမဲ့ Edge-TTS စနစ်ဖြင့် အလိုအလျောက် ပြောင်းလဲထုတ်လုပ်ပေးနေပါသည်။")
+                    audio_bytes = asyncio.run(generate_edge_tts(user_text, "my-MM-ThihaNeural"))
+                    success_mode = "Standard Free (Auto-Fallback)"
+            
+            # အသုံးပြုသူက Free စနစ်ရွေးထားလျှင်
+            else:
+                audio_bytes = asyncio.run(generate_edge_tts(user_text, voice_id))
+                success_mode = "Standard Free Quality"
+            
+            # OUTPUT DISPLAY & DOWNLOAD
+            if audio_bytes:
+                st.success(f"🎉 အသံဖိုင်ပြောင်းလဲခြင်း အောင်မြင်ပါသည် ({success_mode})")
                 st.audio(audio_bytes, format="audio/mp3")
                 
-                # Fileless Download Mechanism
                 st.download_button(
-                    label="📥 Premium အသံဖိုင်ကို ရယူရန် (Download)",
+                    label="📥 အသံဖိုင်ကို ရယူရန် (Download)",
                     data=audio_bytes,
-                    file_name="myanmar_premium_speech.mp3",
+                    file_name="myanmar_ai_speech.mp3",
                     mime="audio/mp3",
                     use_container_width=True
-                )
-            except Exception as e:
-                st.error(f"❌ စနစ်အတွင်း ချို့ယွင်းချက် ရှိနေပါသည်။ API Key မှန်မမှန် ပြန်စစ်ပေးပါ။ အကြောင်းရင်း: {str(e)}")
+)
     
