@@ -1,6 +1,6 @@
 """
 Advanced Myanmar Text-to-Speech (TTS) Web Application
-Engine: Microsoft Edge Neural TTS with SSML (Speech Synthesis Markup Language)
+Engine: Microsoft Edge Neural TTS with Verified SSML Integration
 Framework: Streamlit
 """
 
@@ -20,7 +20,7 @@ st.set_page_config(
 
 st.title("Advanced မြန်မာ AI အသံထွက်စနစ် (SSML Enabled)")
 st.markdown("---")
-st.write("SSML နည်းပညာကို အသုံးပြုထားသဖြင့် ပုဒ်ဖြတ်ပုဒ်ရပ်များတွင် သဘာဝကျကျ ရပ်နားပြီး လေယူလေသိမ်း ပိုမိုကောင်းမွန်ပါသည်။")
+st.write("SSML စနစ်ကို စနစ်တကျ ပြင်ဆင်ထားသဖြင့် ပုဒ်ဖြတ်ပုဒ်ရပ်များတွင် သဘာဝကျကျ ရပ်နားပြီး လေယူလေသိမ်း ပိုမိုကောင်းမွန်ပါသည်။")
 
 # ==========================================
 # 2. VOICE MATRIX DEFINITIONS
@@ -47,27 +47,26 @@ voice_id = VOICES[selected_voice_label]
 # ==========================================
 async def process_tts_conversion_with_ssml(text: str, voice: str, output_path: str) -> None:
     """
-    SSML တည်ဆောက်ပုံကို အသုံးပြု၍ Neural Engine ဆီသို့ Request ပို့သည့် Function ဖြစ်သည်။
-    - prosody rate="-10%": စကားပြောနှုန်းကို ၁၀ ရာခိုင်နှုန်း လျှော့ချသည်။
-    - break time="250ms": စာသားများ မစတင်မီနှင့် အဖြတ်အတောက်များတွင် သဘာဝကျကျ ခေတ္တရပ်နားစေသည်။
+    Edge-TTS တွင် SSML အသုံးပြုရန်အတွက် text parameter ထဲသို့ စနစ်တကျ ဖော်မတ်ချထားသော 
+    XML Structure ကို တိုက်ရိုက်ပေးပို့သည့် လုပ်ဆောင်ချက် ဖြစ်သည်။
     """
-    # XML/SSML tags များ ကွဲလွဲမှုမရှိစေရန် အခြေခံစာသားကို ရှင်းလင်းခြင်း
-    clean_text = text.replace("<", "&lt;").replace(">", "&gt;")
+    # XML Syntax Error မတက်စေရန် စာသားထဲက အထူးပြုသင်္ကေတများကို Clean လုပ်ခြင်း
+    clean_text = text.replace("<", "&lt;").replace(">", "&gt;").replace("&", "&amp;")
     
-    # SSML Template ဖန်တီးခြင်း
+    # ⚠️ အဓိကပြင်ဆင်ချက်: edge-tts သည် text argument ထဲတွင် SSML string ကို တိုက်ရိုက်လက်ခံပါသည်
     ssml_structure = f"""
     <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='my-MM'>
         <voice name='{voice}'>
             <prosody rate='-10%' volume='max'>
-                <break time='200ms'/>
+                <break time='250ms'/>
                 {clean_text}
             </prosody>
         </voice>
     </speak>
     """
     
-    # Communicate Class တွင် standard text အစား ssml parameter ကို ပြောင်းလဲအသုံးပြုခြင်း
-    communicate = edge_tts.Communicate(ssml=ssml_structure)
+    # Error ကုထုံး: ssml= แทนที่จะเป็น text= ကို ပြောင်းလဲ၍ text parameter ထဲသို့ ရိုက်ထည့်ခြင်း
+    communicate = edge_tts.Communicate(text=ssml_structure, voice=voice)
     await communicate.save(output_path)
 
 # ==========================================
@@ -77,7 +76,7 @@ if st.button("AI SSML အသံဖန်တီးမယ်", type="primary", use
     if not user_text.strip():
         st.warning("⚠️ ကျေးဇူးပြု၍ ပြောင်းလဲလိုသော မြန်မာစာသားများကို အရင်ဆုံး ရိုက်ထည့်ပေးပါ။")
     else:
-        output_filename = "ssml_optimized_voice.mp3"
+        output_filename = "ssml_fixed_voice.mp3"
         
         with st.spinner("⏳ AI SSML Engine မှ အသံဖိုင်ကို စနစ်တကျ အကောင်းဆုံး ချက်လုပ်နေပါသည်..."):
             try:
@@ -96,6 +95,7 @@ if st.button("AI SSML အသံဖန်တီးမယ်", type="primary", use
                         use_container_width=True
                     )
                 
+                # Cleanup ယာယီဖိုင်ဖျက်ခြင်း
                 if os.path.exists(output_filename):
                     os.remove(output_filename)
                     
