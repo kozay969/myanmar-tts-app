@@ -1,6 +1,6 @@
 """
 Advanced Myanmar Text-to-Speech (TTS) Web Application
-Engine: Microsoft Edge Neural TTS with Verified SSML Integration
+Engine: Microsoft Edge Neural TTS with Standard SSML
 Framework: Streamlit
 """
 
@@ -20,7 +20,7 @@ st.set_page_config(
 
 st.title("Advanced မြန်မာ AI အသံထွက်စနစ် (SSML Enabled)")
 st.markdown("---")
-st.write("SSML စနစ်ကို စနစ်တကျ ပြင်ဆင်ထားသဖြင့် ပုဒ်ဖြတ်ပုဒ်ရပ်များတွင် သဘာဝကျကျ ရပ်နားပြီး လေယူလေသိမ်း ပိုမိုကောင်းမွန်ပါသည်။")
+st.write("SSML နည်းပညာကို အသုံးပြုထားသဖြင့် ပုဒ်ဖြတ်ပုဒ်ရပ်များတွင် သဘာဝကျကျ ရပ်နားပြီး လေယူလေသိမ်း ပိုမိုကောင်းမွန်ပါသည်။")
 
 # ==========================================
 # 2. VOICE MATRIX DEFINITIONS
@@ -47,26 +47,27 @@ voice_id = VOICES[selected_voice_label]
 # ==========================================
 async def process_tts_conversion_with_ssml(text: str, voice: str, output_path: str) -> None:
     """
-    Edge-TTS တွင် SSML အသုံးပြုရန်အတွက် text parameter ထဲသို့ စနစ်တကျ ဖော်မတ်ချထားသော 
-    XML Structure ကို တိုက်ရိုက်ပေးပို့သည့် လုပ်ဆောင်ချက် ဖြစ်သည်။
+    Standard SSML Method:
+    - xml:lang, voice name များကို စနစ်တကျ သတ်မှတ်ထားသည်။
+    - prosody rate='-10%' ဖြင့် စက်ရုပ်ဆန်မှုကို လျှော့ချထားသည်။
     """
-    # XML Syntax Error မတက်စေရန် စာသားထဲက အထူးပြုသင်္ကေတများကို Clean လုပ်ခြင်း
+    # XML Parsing Error မတက်စေရန် စာသားများကို သန့်စင်ခြင်း
     clean_text = text.replace("<", "&lt;").replace(">", "&gt;").replace("&", "&amp;")
     
-    # ⚠️ အဓိကပြင်ဆင်ချက်: edge-tts သည် text argument ထဲတွင် SSML string ကို တိုက်ရိုက်လက်ခံပါသည်
-    ssml_structure = f"""
-    <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='my-MM'>
-        <voice name='{voice}'>
-            <prosody rate='-10%' volume='max'>
-                <break time='250ms'/>
-                {clean_text}
-            </prosody>
-        </voice>
-    </speak>
-    """
+    # ပြည့်စုံသော SSML Structure တည်ဆောက်ခြင်း
+    # ⚠️ ၎င်းကို ဖွင့်သည့်အခါ Communicate တွင် 'ssml' ဟု မသုံးဘဲ 'text' ထဲသို့သာ တိုက်ရိုက်ထည့်ရသော်လည်း 
+    # voice parameter ကို ထပ်မံ မထည့်သွင်းရပါ။ (Voice ကို SSML Tag ထဲတွင် သတ်မှတ်ပြီးသားဖြစ်၍)
+    ssml_structure = f"""<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='my-MM'>
+<voice name='{voice}'>
+<prosody rate='-10%' volume='max'>
+<break time='250ms'/>
+{clean_text}
+</prosody>
+</voice>
+</speak>"""
     
-    # Error ကုထုံး: ssml= แทนที่จะเป็น text= ကို ပြောင်းလဲ၍ text parameter ထဲသို့ ရိုက်ထည့်ခြင်း
-    communicate = edge_tts.Communicate(text=ssml_structure, voice=voice)
+    # Fix: voice parameter ကို ဖယ်ထုတ်ပြီး text parameter တစ်ခုတည်းဖြင့် SSML ကို မောင်းနှင်ခြင်း
+    communicate = edge_tts.Communicate(text=ssml_structure)
     await communicate.save(output_path)
 
 # ==========================================
@@ -95,10 +96,9 @@ if st.button("AI SSML အသံဖန်တီးမယ်", type="primary", use
                         use_container_width=True
                     )
                 
-                # Cleanup ယာယီဖိုင်ဖျက်ခြင်း
                 if os.path.exists(output_filename):
                     os.remove(output_filename)
                     
             except Exception as e:
                 st.error(f"❌ စနစ်အတွင်း အမှားအယွင်း ဖြစ်ပွားခဲ့ပါသည်။ အကြောင်းရင်း: {str(e)}")
-    
+                                           
