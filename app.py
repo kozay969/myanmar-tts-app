@@ -9,9 +9,11 @@ st.set_page_config(page_title="Prompt TTS", page_icon="🎙️", layout="wide")
 st.title("🎙️ Prompt နဲ့ အသံပုံစံပြောင်းမယ်")
 st.markdown("---")
 
-# Session state ထဲ audio သိမ်းဖို့
+# Session state
 if 'audio_file' not in st.session_state:
     st.session_state.audio_file = None
+if 'detected' not in st.session_state:
+    st.session_state.detected = ""
 
 def parse_style_prompt(prompt):
     """Prompt ထဲက Keyword ဖမ်းပြီး ffmpeg filter ပြောင်းတာ"""
@@ -19,7 +21,7 @@ def parse_style_prompt(prompt):
     filters = []
     effects = []
     
-    # 1. Pitch
+    # 1. Pitch - အသံအနိမ့်အမြင့်
     if any(w in prompt for w in ['ထူထူ', 'ထူ', 'နိမ့်', 'အဖိုးကြီး', 'ဦးလေးကြီး', 'ဘကြီး', 'ဗီလိန်']):
         filters.append("asetrate=44100*0.75,aresample=44100")
         effects.append("အသံထူထူ")
@@ -27,7 +29,7 @@ def parse_style_prompt(prompt):
         filters.append("asetrate=44100*1.3,aresample=44100")
         effects.append("အသံစူးစူး")
     
-    # 2. Speed
+    # 2. Speed - အမြန်နှုန်း
     if any(w in prompt for w in ['နှေး', 'နှေးနှေး', 'ဖြည်းဖြည်း', 'လေးလေး', 'အေးအေး']):
         filters.append("atempo=0.7")
         effects.append("နှေးနှေး")
@@ -37,7 +39,7 @@ def parse_style_prompt(prompt):
     else:
         filters.append("atempo=1.0")
     
-    # 3. Emotion
+    # 3. Emotion Effects
     if any(w in prompt for w in ['တုန်တုန်', 'တုန်', 'ကြောက်နေ', 'ငိုနေ', 'တုန်လှုပ်']):
         filters.append("vibrato=f=6:d=0.7")
         effects.append("အသံတုန်တုန်")
@@ -50,11 +52,18 @@ def parse_style_prompt(prompt):
         filters.append("lowpass=f=2000,volume=0.8")
         effects.append("ဝမ်းနည်းသံ")
     
-    # 4. Special Effects
-    if any(w in prompt for w in ['ပဲ့တင်', 'echo', 'ဂူထဲက', 'ခန်းမထဲက']):
-        filters.append("aecho=0.8:0.9:1000:0.3")
+    # 4. Echo - ပဲ့တင်သံ Level 3 ဆင့်
+    if 'ပဲ့တင်နည်းနည်း' in prompt or 'echo နည်း' in prompt or 'echoနည်း' in prompt:
+        filters.append("aecho=0.6:0.7:500:0.15")  # 15% ပဲ့တင်၊ မြန်မြန်ပျောက်
+        effects.append("ပဲ့တင်နည်းနည်း")
+    elif 'ပဲ့တင်များများ' in prompt or 'echo များ' in prompt or 'ဂူထဲက' in prompt or 'echoများ' in prompt:
+        filters.append("aecho=0.9:0.95:1500:0.5")  # 50% ပဲ့တင်၊ ကြာကြာကျန်
+        effects.append("ပဲ့တင်များများ")
+    elif any(w in prompt for w in ['ပဲ့တင်', 'echo', 'ခန်းမထဲက']):
+        filters.append("aecho=0.8:0.9:1000:0.3")  # 30% ပဲ့တင်၊ ပုံမှန်
         effects.append("ပဲ့တင်သံ")
     
+    # 5. Special Effects
     if any(w in prompt for w in ['စက်ရုပ်', 'robot', 'ai', 'ကွန်ပျူတာ']):
         filters.append("afftfilt=real='hypot(re,im)*sin(0)':imag='hypot(re,im)*cos(0)':win_size=512:overlap=0.75")
         effects.append("စက်ရုပ်သံ")
@@ -69,11 +78,19 @@ def parse_style_prompt(prompt):
     return ",".join(filters), " + ".join(effects)
 
 async def generate_with_prompt(text, base_voice, style_prompt):
+    if not text.strip():
+        st.error("❌ ဖတ်ဖို့စာ ရိုက်ထည့်ပါဦး bro")
+        return None, "စာမရှိဘူး"
+    
     # Step 1: အခြေခံအသံ ထုတ်မယ်
-    communicate = edge_tts.Communicate(text, base_voice)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
-        await communicate.save(tmp.name)
-        base_audio = tmp.name
+    try:
+        communicate = edge_tts.Communicate(text, base_voice)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+            await communicate.save(tmp.name)
+            base_audio = tmp.name
+    except Exception as e:
+        st.error(f"❌ Edge TTS Error: {e}")
+        return None, "TTS မရဘူး"
 
     # Step 2: Prompt ဖမ်းပြီး Effect ထည့်မယ်
     filter_str, detected = parse_style_prompt(style_prompt)
@@ -83,8 +100,13 @@ async def generate_with_prompt(text, base_voice, style_prompt):
     
     output_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
     cmd = f'ffmpeg -i "{base_audio}" -af "{filter_str}" -y "{output_audio}"'
-    os.system(cmd)
+    
+    result = os.system(cmd)
     os.remove(base_audio)
+    
+    if result != 0:
+        st.error("❌ ffmpeg မရှိဘူး။ GitHub မှာ packages.txt ထဲမှာ ffmpeg ထည့်ပါ")
+        return None, "ffmpeg Error"
     
     return output_audio, detected
 
@@ -105,7 +127,9 @@ with col2:
 ထူထူ, စူးစူး
 နှေး, မြန်
 တုန်တုန်, ဒေါသ
-ဝမ်းနည်း, ပဲ့တင်
+ဝမ်းနည်း
+ပဲ့တင်နည်းနည်း
+ပဲ့တင်များများ
 စက်ရုပ်, ဖုန်းထဲက
 ကလေး, အဖိုးကြီး
     """)
@@ -113,7 +137,7 @@ with col2:
 style_prompt = st.text_area(
     "✍️ အသံပုံစံ Prompt", 
     height=80, 
-    placeholder="ဥပမာ: အသံထူထူ၊ နှေးနှေး၊ ဒေါသထွက်နေတဲ့ပုံစံ",
+    placeholder="ဥပမာ: အသံထူထူ၊ ပဲ့တင်နည်းနည်း၊ နှေးနှေး",
     help="Keyword တွေ ကော်မာ နဲ့ တွဲရေးလို့ရတယ်"
 )
 
@@ -125,11 +149,12 @@ if st.button("🚀 Prompt နဲ့ ထုတ်မယ်", use_container_width=
             audio_path, detected_effects = loop.run_until_complete(
                 generate_with_prompt(text, base_voice, style_prompt)
             )
-            st.session_state.audio_file = audio_path
-            st.session_state.detected = detected_effects
-            st.success("✅ ရပြီ!")
+            if audio_path:
+                st.session_state.audio_file = audio_path
+                st.session_state.detected = detected_effects
+                st.success("✅ ရပြီ!")
     else:
-        st.warning("⚠️ စာရိုက်ထည့်ဦးလေ bro")
+        st.warning("⚠️ ဖတ်ဖို့စာ ရိုက်ထည့်ဦးလေ bro")
 
 # Audio Player
 if st.session_state.audio_file:
@@ -150,4 +175,4 @@ if st.session_state.audio_file:
 
 # Footer
 st.markdown("---")
-st.markdown("💡 **Tip:** `အသံထူထူ၊ ပဲ့တင်၊ နှေးနှေး` လို တွဲရေးကြည့်")
+st.markdown("💡 **Tip:** `အသံထူထူ၊ ပဲ့တင်နည်းနည်း၊ နှေးနှေး` လို တွဲရေးကြည့်")
