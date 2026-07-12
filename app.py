@@ -6,7 +6,7 @@ import os
 
 st.set_page_config(page_title="Prompt TTS Pro", page_icon="🎙️", layout="wide")
 
-st.title("🎙️ Prompt + Speed + Echo + Music TTS")
+st.title("🎙️ Prompt + Speed + Echo + BGM Volume TTS")
 st.markdown("---")
 
 # Session state
@@ -26,7 +26,7 @@ def parse_style_prompt(prompt, speed_multiplier=1.0, echo_level=0):
         pitch_rate = 0.75
         filters.append("asetrate=44100*0.75,aresample=44100")
         effects.append("အသံထူထူ")
-    elif any(w in prompt for w in ['စူးစူး', 'စူး', 'မြင့်', 'ကလေး', 'မိန်းကလေး', 'ချိုချို']):
+    elif any(w in prompt for w in ['စူးစူး', 'စူး', 'မြင့်', 'ကလေး', 'ချိုချို']):
         pitch_rate = 1.3
         filters.append("asetrate=44100*1.3,aresample=44100")
         effects.append("အသံစူးစူး")
@@ -97,7 +97,7 @@ def parse_style_prompt(prompt, speed_multiplier=1.0, echo_level=0):
 
     return ",".join(filters), " + ".join(effects)
 
-async def generate_with_prompt(text, base_voice, style_prompt, speed, echo, bgm_file=None):
+async def generate_with_prompt(text, base_voice, style_prompt, speed, echo, bgm_file=None, bgm_volume=30):
     if not text.strip():
         st.error("❌ ဖတ်ဖို့စာ ရိုက်ထည့်ပါဦး bro")
         return None, "စာမရှိဘူး"
@@ -122,15 +122,16 @@ async def generate_with_prompt(text, base_voice, style_prompt, speed, echo, bgm_
     os.system(cmd_fx)
     os.remove(voice_audio)
 
-    # Step 3: BGM ထည့်မယ် - အသစ်ထပ်တိုးတာ
+    # Step 3: BGM ထည့်မယ် + Volume Control
     output_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
 
     if bgm_file:
-        # BGM နဲ့ Voice ပေါင်းမယ်။ Voice အသံကို 3 ဆ ပိုကျယ်မယ်
-        cmd_mix = f'ffmpeg -i "{voice_with_fx}" -i "{bgm_file}" -filter_complex "[1:a]volume=0.3[bgm];[0:a][bgm]amix=inputs=2:duration=first" -y "{output_audio}"'
+        # BGM Volume ကို 0-100 ကနေ 0.0-1.0 ပြောင်းမယ်
+        bgm_vol = bgm_volume / 100.0
+        cmd_mix = f'ffmpeg -i "{voice_with_fx}" -i "{bgm_file}" -filter_complex "[1:a]volume={bgm_vol}[bgm];[0:a][bgm]amix=inputs=2:duration=first" -y "{output_audio}"'
         os.system(cmd_mix)
         os.remove(voice_with_fx)
-        detected += " + BGM"
+        detected += f" + BGM {bgm_volume}%"
     else:
         os.rename(voice_with_fx, output_audio)
 
@@ -156,7 +157,7 @@ with col2:
 ဝမ်းနည်း
 စက်ရုပ်, ဖုန်းထဲက
     """)
-    st.caption("Speed/Echo က Slider နဲ့ချိန်")
+    st.caption("Speed/Echo/BGM Vol က Slider နဲ့ချိန်")
 
 # Speed + Echo Slider
 col_speed, col_echo = st.columns(2)
@@ -169,14 +170,22 @@ with col_echo:
     echo = st.slider("🔊 ပဲ့တင်သံ Level", 0, 100, 0, 5)
     st.markdown(f"<center><b style='color:#ffa500'>Echo: {echo}%</b></center>", unsafe_allow_html=True)
 
-# BGM Upload - အသစ်ထပ်တိုးတာ
-bgm_file = st.file_uploader("🎵 နောက်ခံသီချင်း MP3 (Optional)", type=['mp3'], help="စကားပြောနဲ့ တွဲချင်တဲ့ သီချင်းဖိုင် တင်ပါ")
+# BGM Upload + Volume Slider - အသစ်ထပ်တိုးတာ
+st.markdown("---")
+col_bgm_file, col_bgm_vol = st.columns([2, 1])
+
+with col_bgm_file:
+    bgm_file = st.file_uploader("🎵 နောက်ခံသီချင်း MP3", type=['mp3'], help="စကားပြောနဲ့ တွဲချင်တဲ့ သီချင်းဖိုင် တင်ပါ")
+
+with col_bgm_vol:
+    bgm_volume = st.slider("🎚️ BGM အသံ", 0, 100, 30, 5, help="0% = မကြားရ | 100% = အကျယ်ဆုံး")
+    st.markdown(f"<center><b style='color:#ff4b4b'>BGM: {bgm_volume}%</b></center>", unsafe_allow_html=True)
 
 style_prompt = st.text_area(
     "✍️ အသံပုံစံ Prompt (Optional)",
     height=60,
     placeholder="ဥပမာ: အသံထူထူ၊ ဒေါသသံ",
-    help="Speed/Echo က Slider နဲ့ချိန်၊ ကျန်တာ ဒီမှာ Keyword ရေးပါ"
+    help="Speed/Echo/BGM Vol က Slider နဲ့ချိန်၊ ကျန်တာ ဒီမှာ Keyword ရေးပါ"
 )
 
 if st.button("🚀 ထုတ်မယ်", use_container_width=True, type="primary"):
@@ -192,7 +201,7 @@ if st.button("🚀 ထုတ်မယ်", use_container_width=True, type="prima
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             audio_path, detected_effects = loop.run_until_complete(
-                generate_with_prompt(text, base_voice, style_prompt, speed, echo, bgm_path)
+                generate_with_prompt(text, base_voice, style_prompt, speed, echo, bgm_path, bgm_volume)
             )
 
             # BGM temp file ဖျက်မယ်
@@ -218,11 +227,11 @@ if st.session_state.audio_file:
         st.download_button(
             label="📥 MP3 Download",
             data=audio_bytes,
-            file_name="tts_with_bgm.mp3",
+            file_name="tts_pro.mp3",
             mime="audio/mp3",
             use_container_width=True
         )
 
 # Footer
 st.markdown("---")
-st.markdown("💡 **Tip:** BGM တင်ပြီး Speed 0.8x + Echo 15% + `အသံထူထူ` = Epic Trailer Voice")
+st.markdown("💡 **Pro Tip:** BGM 20% + Speed 0.8x + Echo 10% + `အသံထူထူ` = Movie Trailer Voice")
