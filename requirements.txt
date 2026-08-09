@@ -1,6 +1,4 @@
 streamlit
 edge-tts
-TTS
 pydub
-torch
-torchaudio --index-url https://download.pytorch.org/whl/cpu
+gradio_client
