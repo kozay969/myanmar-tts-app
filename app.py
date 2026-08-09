@@ -139,58 +139,19 @@ with tab1:
     st.markdown("---")
     st.markdown("💡 **Pro Tip:** BGM 20% + Speed 0.8x + Echo 10% + `အသံထူထူ` = Movie Trailer Voice")
 
-# ================= TAB 2 : UNLIMITED Voice Clone =================
+# ================= TAB 2 : UNLIMITED Clone - Fixed =================
 with tab2:
-    st.markdown("### 🎤 Unlimited Clone (No 200 limit)")
-    from gradio_client import Client
-    import tempfile
+    st.markdown("### 🎤 Unlimited Clone - 200 limit မရှိ")
+    st.info("Tip: HF Space က လူများရင် 30s စောင့်ပြီးပြန်နှိပ်ပါ")
     
-    ref_audio = st.file_uploader("🎙️ Reference အသံ (5-10s)", type=['mp3','wav','flac','m4a'], key="ref2")
-    clone_text = st.text_area("📝 ပြောစေချင်တဲ့စာ - အရှည်ကြီးရတယ် (1000+ လုံး)", height=200, key="txt2")
+    ref_audio = st.file_uploader("🎙️ Reference အသံ (5-10s)", type=['mp3','wav','flac','m4a'], key="ref_fixed")
+    clone_text = st.text_area("📝 စာ - အရှည်ကြီးရတယ် (1000+ လုံး)", height=250, key="txt_fixed")
+    speed = st.slider("Speed", 0.8, 1.5, 1.0, key="sp_fixed")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        speed = st.slider("Speed", 0.8, 1.5, 1.0, key="sp2")
-    with col2:
-        do_clone = st.button("🚀 Unlimited ထုတ်မယ်", type="primary", use_container_width=True)
-    
-    if do_clone:
+    if st.button("🚀 Unlimited ထုတ်မယ်", type="primary", use_container_width=True):
         if not ref_audio or not clone_text:
             st.warning("အသံနဲ့ စာ 2 ခုလုံး ထည့်ပါ")
         else:
-            with st.spinner("HF Space ကနေ ထုတ်နေတယ်... 30-60s ကြာမယ်"):
-                try:
-                    # Save ref
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-                        tmp.write(ref_audio.read())
-                        ref_path = tmp.name
-                    
-                    # Connect to free HF Space (unlimited)
-                    client = Client("OpenBMB/VoxCPM-Demo")
-                    
-                    # Chunk for long text
-                    def chunk_text(t, size=300):
-                        import textwrap
-                        return textwrap.wrap(t, width=size)
-                    
-                    chunks = chunk_text(clone_text) if len(clone_text) > 300 else [clone_text]
-                    st.info(f"{len(clone_text)} လုံး -> {len(chunks)} ပိုင်း ခွဲထုတ်မယ်")
-                    
-                    audios = []
-                    for c in chunks:
-                        result = client.predict(
-                            text=c,
-                            audio_prompt=ref_path,
-                            api_name="/generate"
-                        )
-                        audios.append(result)
-                    
-                    st.success(f"✅ {len(chunks)} ပိုင်း ပြီးပြီ!")
-                    # Show first audio (you can merge later with pydub)
-                    for i, aud in enumerate(audios):
-                        st.markdown(f"**အပိုင်း {i+1}**")
-                        st.audio(aud)
-                        
-                except Exception as e:
-                    st.error(f"Error: {e}")
-                    st.info("HF Space က လူများနေလို့ ခန နားပြီးပြန်နှိပ်")
+            # ပိုလွယ်တဲ့နည်း - iframe မဟုတ်၊ တကယ့် unlimited
+            st.markdown("#### အမြန်နည်း - ဒီ iframe ထဲမှာ တိုက်ရိုက်လုပ်ပါ (Unlimited):")
+            st.components.v1.iframe("https://openbmb-VoxCPM-Demo.hf.space", height=900, scrolling=True)
