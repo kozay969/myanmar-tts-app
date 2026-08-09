@@ -1,40 +1,46 @@
 import streamlit as st
-import asyncio, edge_tts, tempfile, textwrap
-from pydub import AudioSegment
+import asyncio
+import edge_tts
+import tempfile
+import textwrap
 
-st.set_page_config(page_title="Prompt TTS Pro + Clone", layout="wide")
-st.title("🎙️ Myanmar TTS Pro")
+st.set_page_config(page_title="Myanmar TTS Pro", layout="wide")
+st.title("🎙️ Myanmar TTS Pro - Unlimited")
 
-tab1, tab2 = st.tabs(["📖 Long Story (1647+ Unlimited)", "🎤 Voice Clone (200)"])
+tab1, tab2 = st.tabs(["📖 Long Story (Unlimited)", "🎤 Clone (200)"])
 
-# === TAB 1: UNLIMITED - မင်းရဲ့ 1647 လုံး story အတွက် ===
 with tab1:
-    st.success("✅ ဒီ Tab က စာလုံးရေ Unlimited - 5000 လုံးထိ ရတယ်")
-    text = st.text_area("စာ ထည့်ပါ - Ben, Cora story", height=300, key="long")
+    st.success("✅ 1647 လုံး, 5000 လုံး Unlimited - pydub မလို")
+    text = st.text_area("စာထည့်ပါ (Ben, Cora story)", height=300)
     voice = st.selectbox("အသံ", ["my-MM-NilarNeural", "my-MM-ThihaNeural"])
-    
-    if st.button("🚀 Long Audio ထုတ်မယ်", type="primary", use_container_width=True):
-        if text:
-            async def gen():
-                chunks = textwrap.wrap(text, 400)
-                st.info(f"{len(text)} လုံး -> {len(chunks)} ပိုင်း")
-                audios = []
-                prog = st.progress(0)
-                for i, ch in enumerate(chunks):
-                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-                    comm = edge_tts.Communicate(ch, voice)
-                    await comm.save(tmp)
-                    audios.append(AudioSegment.from_file(tmp))
-                    prog.progress((i+1)/len(chunks))
-                final = sum(audios, AudioSegment.empty())
-                out = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-                final.export(out, format="mp3")
-                st.audio(out)
-                st.download_button("📥 Download MP3", open(out,'rb'), "myanmar_long.mp3", use_container_width=True)
-            
-            asyncio.run(gen())
 
-# === TAB 2: Clone - Short only ===
+    if st.button("🚀 Unlimited ထုတ်မယ်", type="primary", use_container_width=True):
+        if not text:
+            st.warning("စာ ထည့်ဦး")
+        else:
+            async def gen_long():
+                # 400 လုံးစီ ခွဲပြီး တစ်ဖိုင်တည်း ဆက်တိုက်ရေး - pydub မလို
+                chunks = textwrap.wrap(text, 600, break_long_words=False) if len(text) > 600 else [text]
+                st.info(f"{len(text)} လုံး -> {len(chunks)} ပိုင်း ပေါင်းထုတ်မယ်")
+
+                out_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+                # edge-tts ကို chunk တစ်ခုချင်း append လုပ်နည်း
+                with open(out_path, "wb") as final_file:
+                    prog = st.progress(0)
+                    for i, chunk in enumerate(chunks):
+                        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+                        comm = edge_tts.Communicate(chunk, voice)
+                        await comm.save(tmp)
+                        with open(tmp, "rb") as f:
+                            final_file.write(f.read())
+                        prog.progress((i+1)/len(chunks))
+
+                st.success("ပြီးပြီ!")
+                st.audio(out_path)
+                st.download_button("📥 MP3 Download", open(out_path,'rb'), "myanmar_unlimited.mp3", "audio/mp3", use_container_width=True)
+
+            asyncio.run(gen_long())
+
 with tab2:
-    st.warning("Clone က 200 လုံး limit ရှိတယ် - စာတို အတွက်ပဲ")
+    st.warning("Clone က 200 limit - voxcpm.app သုံး")
     st.components.v1.iframe("https://voxcpm.app", height=800)
