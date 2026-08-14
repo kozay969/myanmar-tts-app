@@ -3,6 +3,7 @@ import edge_tts
 import asyncio
 import tempfile
 import os
+import json
 
 st.set_page_config(page_title="Prompt TTS Pro + Clone", page_icon="🎙️", layout="wide")
 st.title("🎙️ Prompt TTS Pro + Voice Clone")
@@ -92,13 +93,37 @@ with tab1:
             os.rename(voice_with_fx, output_audio)
         return output_audio, detected
 
+    # ====== ဒီနေရာပဲ အစားထိုးထားတာ ======
     col1, col2 = st.columns([2, 1])
     with col1:
-        text = st.text_area("📝 ဖတ်စေချင်တဲ့စာ", height=150, placeholder="ဒီနေ့ မိုးရွာမယ်...")
+        st.markdown("📝 **JSON (translations) ထည့်ပါ**")
+        json_input = st.text_area("JSON", height=200, placeholder='{"translations": ["အမျိုးသားဟာ..."]}', key="json_text")
+
+        text = ""
+        try:
+            if json_input.strip():
+                data = json.loads(json_input)
+                arr = data.get("translations", [])
+                if isinstance(arr, list) and len(arr) > 0:
+                    text = "\n".join(arr)
+                    st.success(f"✅ {len(arr)} ကြောင်း ဖတ်လိုက်ပြီ - အောက်မှာ ပေါင်းထားတဲ့ စာသားပြမယ်")
+                    with st.expander("ပေါင်းထားတဲ့ စာသား ကြည့်မယ်"):
+                        st.write(text)
+                else:
+                    # translations မရှိရင် ရိုးရိုးစာသားအဖြစ် သဘောထား
+                    text = json_input
+            else:
+                text = ""
+        except:
+            # JSON error ဆို ရိုးရိုးစာသားအဖြစ် ထား
+            text = json_input
+
         base_voice = st.selectbox("🎭 အခြေခံအသံ", ["my-MM-ThihaNeural", "my-MM-NilarNeural"], format_func=lambda x: "Thiha - ယောက်ျားလေး" if "Thiha" in x else "Nilar - မိန်းကလေး")
     with col2:
         st.markdown("### 💡 Keyword ဥပမာ")
         st.code("ထူထူ, စူးစူး\nနှေး, မြန်\nတုန်တုန်, ဒေါသ\nဝမ်းနည်း\nစက်ရုပ်, ဖုန်းထဲက")
+    # ====== အစားထိုးတာ ဒီမှာပြီးပြီ ======
+
     col_speed, col_echo = st.columns(2)
     with col_speed:
         speed = st.slider("⚡ အသံအမြန်နှုန်း", 0.5, 2.0, 1.0, 0.1, key="s1")
